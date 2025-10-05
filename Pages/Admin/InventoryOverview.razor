@@ -1,0 +1,352 @@
+@page "/admin/inventory"
+@attribute [Authorize(Roles = "Admin, Warehouse")]
+
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject ToastService ToastSvc
+@inject IJSRuntime JSRuntime
+
+<h3 class="mb-3">Tổng quan Tồn kho</h3>
+
+<!-- BỘ LỌC TÌM KIẾM (GIAO DIỆN ĐẸP) -->
+<div class="card shadow-sm mb-4 border-0">
+    <div class="card-header bg-primary text-white d-flex align-items-center">
+        <i class="bi bi-funnel me-2"></i>
+        <h5 class="mb-0">Bộ lọc tìm kiếm</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Tên sản phẩm</label>
+                <InputText class="form-control form-control-sm" @bind-Value="filter.ProductName" placeholder="Nhập tên sản phẩm..." />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Kho</label>
+                <InputText class="form-control form-control-sm" @bind-Value="filter.WarehouseName" placeholder="Tên kho..." />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Vị trí</label>
+                <InputText class="form-control form-control-sm" @bind-Value="filter.LocationCode" placeholder="Mã vị trí..." />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Số phiếu nhập</label>
+                <InputText class="form-control form-control-sm" @bind-Value="filter.PurchaseOrderNumber" placeholder="Số phiếu..." />
+            </div>
+        </div>
+
+        <div class="row g-3 mt-1 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Từ ngày nhập</label>
+                <InputDate class="form-control form-control-sm" @bind-Value="filter.FromDate" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Đến ngày nhập</label>
+                <InputDate class="form-control form-control-sm" @bind-Value="filter.ToDate" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-secondary">Số lượng từ</label>
+                <InputNumber class="form-control form-control-sm" @bind-Value="filter.MinQuantity" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-secondary">Đến</label>
+                <InputNumber class="form-control form-control-sm" @bind-Value="filter.MaxQuantity" />
+            </div>
+            <div class="col-md-2 text-end">
+                <div class="d-flex gap-2 justify-content-end">
+                    <button class="btn btn-sm btn-primary px-3" @onclick="ApplyFilter">
+                        <i class="bi bi-search me-1"></i>Tìm kiếm
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary px-3" @onclick="ClearFilter">
+                        <i class="bi bi-x-circle me-1"></i>Xóa lọc
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (filterApplied)
+{
+    <div class="alert alert-info py-2 px-3 small d-inline-flex align-items-center mb-3">
+        <i class="bi bi-funnel-fill me-2"></i>Đang hiển thị dữ liệu theo bộ lọc
+    </div>
+}
+
+@if (inventoryItems == null)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <table class="table table-hover table-sm">
+        <thead class="table-light">
+            <tr>
+                <th>Sản phẩm</th>
+                <th>Kho</th>
+                <th>Vị trí</th>
+                <th>Số Phiếu Nhập</th>
+                <th>Ngày Nhập</th>
+                <th class="text-center">Số lượng</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in inventoryItems)
+        {
+            <tr>
+                <td>@item.ProductName</td>
+                <td>@item.WarehouseName</td>
+                <td>@item.LocationCode</td>
+                <td>@item.PurchaseOrderNumber</td>
+                <td>@item.ReceivedDate.ToString("dd/MM/yyyy")</td>
+                <td class="text-center">@item.Quantity</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-primary" @onclick="() => OpenTransferModal(item)">
+                        Chuyển kho
+                    </button>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@* --- MODAL CHUYỂN KHO --- *@
+<div class="modal fade" id="transferStockModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chuyển kho/vị trí</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+
+            @if (itemToTransfer != null)
+            {
+                <div class="modal-body">
+                    <p><strong>Sản phẩm:</strong> @itemToTransfer.ProductName</p>
+                    <p><strong>Từ:</strong> Kho @itemToTransfer.WarehouseName - Vị trí @itemToTransfer.LocationCode</p>
+                    <p><strong>Số lượng hiện có:</strong> @itemToTransfer.Quantity</p>
+                    <hr />
+                    <div class="mb-3">
+                        <label>Số lượng cần chuyển</label>
+                        <InputNumber class="form-control" @bind-Value="transferModel.QuantityToMove" />
+                    </div>
+                    <div class="mb-3">
+                        <label>Đến Kho</label>
+                        <select class="form-select" @onchange="OnTargetWarehouseChanged">
+                            <option value="0">-- Chọn kho đích --</option>
+                            @if (allWarehouses != null)
+                            {
+                                @foreach (var wh in allWarehouses)
+                                {
+                                    <option value="@wh.Id">@wh.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>Đến Vị trí</label>
+                        <select class="form-select" @bind="transferModel.TargetLocationId">
+                            <option value="0">-- Chọn vị trí đích --</option>
+                            @if (targetLocations != null)
+                            {
+                                @foreach (var loc in targetLocations)
+                                {
+                                    <option value="@loc.Id">@loc.Code</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-primary" @onclick="HandleTransfer">Xác nhận Chuyển</button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<InventoryItemViewModel>? inventoryItems;
+    private InventoryItemViewModel? itemToTransfer;
+    private TransferViewModel transferModel = new();
+    private List<Warehouse>? allWarehouses;
+    private List<Location>? targetLocations;
+    private InventoryFilter filter = new();
+    private bool filterApplied = false;
+
+    #region ViewModels
+    public class InventoryItemViewModel
+    {
+        public int ProductId { get; set; }
+        public string? ProductName { get; set; }
+        public int StockLevelId { get; set; }
+        public string? WarehouseName { get; set; }
+        public int LocationId { get; set; }
+        public string? LocationCode { get; set; }
+        public int Quantity { get; set; }
+        public string? PurchaseOrderNumber { get; set; }
+        public DateTime ReceivedDate { get; set; }
+    }
+
+    public class TransferViewModel
+    {
+        public int QuantityToMove { get; set; }
+        public int TargetWarehouseId { get; set; }
+        public int TargetLocationId { get; set; }
+    }
+
+    public class InventoryFilter
+    {
+        public string? ProductName { get; set; }
+        public string? WarehouseName { get; set; }
+        public string? LocationCode { get; set; }
+        public string? PurchaseOrderNumber { get; set; }
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
+        public int? MinQuantity { get; set; }
+        public int? MaxQuantity { get; set; }
+    }
+    #endregion
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInventory();
+        allWarehouses = await DbContext.Warehouses.ToListAsync();
+    }
+
+    private async Task LoadInventory()
+    {
+        var query = DbContext.StockLevels
+            .Include(sl => sl.Product)
+            .Include(sl => sl.Location)!.ThenInclude(l => l.Warehouse)
+            .Include(sl => sl.PurchaseOrderItem)!.ThenInclude(poi => poi!.PurchaseOrder)
+            .Where(sl => sl.Quantity > 0);
+
+        // Áp dụng bộ lọc
+        if (!string.IsNullOrWhiteSpace(filter.ProductName))
+            query = query.Where(sl => sl.Product!.Name.Contains(filter.ProductName));
+
+        if (!string.IsNullOrWhiteSpace(filter.WarehouseName))
+            query = query.Where(sl => sl.Location!.Warehouse!.Name.Contains(filter.WarehouseName));
+
+        if (!string.IsNullOrWhiteSpace(filter.LocationCode))
+            query = query.Where(sl => sl.Location!.Code.Contains(filter.LocationCode));
+
+        if (!string.IsNullOrWhiteSpace(filter.PurchaseOrderNumber))
+            query = query.Where(sl => sl.PurchaseOrderItem!.PurchaseOrder!.PurchaseOrderNumber.Contains(filter.PurchaseOrderNumber));
+
+        if (filter.FromDate.HasValue)
+            query = query.Where(sl => sl.ReceivedDate >= filter.FromDate.Value);
+
+        if (filter.ToDate.HasValue)
+            query = query.Where(sl => sl.ReceivedDate <= filter.ToDate.Value);
+
+        if (filter.MinQuantity.HasValue)
+            query = query.Where(sl => sl.Quantity >= filter.MinQuantity.Value);
+
+        if (filter.MaxQuantity.HasValue)
+            query = query.Where(sl => sl.Quantity <= filter.MaxQuantity.Value);
+
+        inventoryItems = await query
+            .Select(sl => new InventoryItemViewModel
+            {
+                ProductId = sl.ProductId,
+                ProductName = sl.Product!.Name,
+                StockLevelId = sl.Id,
+                WarehouseName = sl.Location!.Warehouse!.Name,
+                LocationId = sl.LocationId,
+                LocationCode = sl.Location.Code,
+                Quantity = sl.Quantity,
+                PurchaseOrderNumber = sl.PurchaseOrderItem != null ? sl.PurchaseOrderItem.PurchaseOrder!.PurchaseOrderNumber : "Mặc định",
+                ReceivedDate = sl.ReceivedDate
+            })
+            .OrderBy(i => i.ProductName)
+            .ThenBy(i => i.WarehouseName)
+            .ThenBy(i => i.LocationCode)
+            .ToListAsync();
+    }
+
+    private async Task ApplyFilter()
+    {
+        filterApplied = true;
+        await LoadInventory();
+    }
+
+    private async Task ClearFilter()
+    {
+        filter = new InventoryFilter();
+        filterApplied = false;
+        await LoadInventory();
+    }
+
+    private async Task OpenTransferModal(InventoryItemViewModel item)
+    {
+        itemToTransfer = item;
+        transferModel = new TransferViewModel();
+        targetLocations = null;
+        StateHasChanged();
+
+        await JSRuntime.InvokeVoidAsync("showModal", "#transferStockModal");
+    }
+
+    private async Task OnTargetWarehouseChanged(ChangeEventArgs e)
+    {
+        var warehouseId = int.Parse(e.Value?.ToString() ?? "0");
+        transferModel.TargetWarehouseId = warehouseId;
+
+        targetLocations = warehouseId > 0
+            ? await DbContext.Locations.Where(l => l.WarehouseId == warehouseId).ToListAsync()
+            : null;
+
+        StateHasChanged();
+    }
+
+    private async Task HandleTransfer()
+    {
+        if (itemToTransfer == null || transferModel.QuantityToMove <= 0 || transferModel.TargetLocationId == 0)
+        {
+            ToastSvc.ShowToast("Vui lòng điền đủ thông tin.", ToastLevel.Error);
+            return;
+        }
+
+        if (transferModel.QuantityToMove > itemToTransfer.Quantity)
+        {
+            ToastSvc.ShowToast("Số lượng chuyển không được lớn hơn số lượng hiện có.", ToastLevel.Error);
+            return;
+        }
+
+        var sourceStockLevel = await DbContext.StockLevels.FindAsync(itemToTransfer.StockLevelId);
+        if (sourceStockLevel == null) return;
+
+        sourceStockLevel.Quantity -= transferModel.QuantityToMove;
+
+        var targetStockLevel = await DbContext.StockLevels
+            .FirstOrDefaultAsync(sl => sl.ProductId == itemToTransfer.ProductId && sl.LocationId == transferModel.TargetLocationId);
+
+        if (targetStockLevel != null)
+        {
+            targetStockLevel.Quantity += transferModel.QuantityToMove;
+        }
+        else
+        {
+            targetStockLevel = new StockLevel
+            {
+                ProductId = itemToTransfer.ProductId,
+                LocationId = transferModel.TargetLocationId,
+                Quantity = transferModel.QuantityToMove,
+                ReceivedDate = sourceStockLevel.ReceivedDate,
+                PurchaseOrderItemId = sourceStockLevel.PurchaseOrderItemId
+            };
+            DbContext.StockLevels.Add(targetStockLevel);
+        }
+
+        await DbContext.SaveChangesAsync();
+        await JSRuntime.InvokeVoidAsync("hideModal", "#transferStockModal");
+        ToastSvc.ShowToast("Chuyển kho thành công!", ToastLevel.Success);
+        await LoadInventory();
+        StateHasChanged();
+    }
+}

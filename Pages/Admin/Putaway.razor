@@ -1,0 +1,189 @@
+@page "/admin/warehouse/putaway/{PurchaseOrderId:int}"
+@attribute [Authorize(Roles = "Admin, Warehouse")]
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+@inject ToastService ToastSvc
+
+<h3>Nhận hàng & Cất vào kho (Putaway)</h3>
+<h4>Phiếu nhập: @purchaseOrder?.PurchaseOrderNumber</h4>
+
+@if (purchaseOrder == null || locations == null)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <p>Phân bổ các sản phẩm đã nhận vào các vị trí trong kho <strong>@purchaseOrder.Warehouse?.Name</strong>.</p>
+            
+            <div class="putaway-list">
+                @foreach (var productGroup in putawayModel.ProductsToPutaway)
+                {
+                    <div class="putaway-product-group card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>Sản phẩm: @productGroup.ProductName</strong><br/>
+                                    <span>Số lượng cần cất: @productGroup.RequiredQuantity</span>
+                                </div>
+                                <div>
+                                    <span class="badge @(productGroup.IsFullyAllocated ? "bg-success" : "bg-danger")">
+                                        Đã phân bổ: @productGroup.AllocatedQuantity / @productGroup.RequiredQuantity
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @foreach (var allocation in productGroup.Allocations)
+                            {
+                                <div class="row align-items-center mb-2">
+                                    <div class="col-md-6">
+                                        <InputSelect class="form-select" @bind-Value="allocation.LocationId">
+                                            <option value="0">-- Chọn vị trí --</option>
+                                            @foreach (var location in locations)
+                                            {
+                                                <option value="@location.Id">@location.Code</option>
+                                            }
+                                        </InputSelect>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <InputNumber class="form-control" @bind-Value="allocation.Quantity" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button class="btn btn-sm btn-danger" @onclick="() => productGroup.Allocations.Remove(allocation)">Xóa</button>
+                                    </div>
+                                </div>
+                            }
+                            <button class="btn btn-sm btn-outline-primary mt-2" @onclick="() => productGroup.Allocations.Add(new PutawayAllocationViewModel())">
+                                <span class="oi oi-plus"></span> Thêm vị trí
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card-footer">
+            <button class="btn btn-success" @onclick="HandlePutaway" disabled="@(!putawayModel.IsReadyToCommit)">
+                Xác nhận đã cất hàng
+            </button>
+            <a href="@($"/admin/purchase-orders/{PurchaseOrderId}")" class="btn btn-secondary">Hủy</a>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int PurchaseOrderId { get; set; }
+    
+    private PurchaseOrder? purchaseOrder;
+    private List<Location>? locations;
+    private PutawayViewModel putawayModel = new();
+
+    // --- ViewModels ---
+    public class PutawayViewModel
+    {
+        public List<PutawayProductViewModel> ProductsToPutaway { get; set; } = new();
+        public bool IsReadyToCommit => ProductsToPutaway.All(p => p.IsFullyAllocated);
+    }
+
+    public class PutawayProductViewModel
+    {
+        public int ProductId { get; set; }
+        public string? ProductName { get; set; }
+        public int RequiredQuantity { get; set; }
+        public List<PutawayAllocationViewModel> Allocations { get; set; } = new();
+        
+        public int AllocatedQuantity => Allocations.Sum(a => a.Quantity);
+        public bool IsFullyAllocated => AllocatedQuantity == RequiredQuantity;
+    }
+
+    public class PutawayAllocationViewModel
+    {
+        public int LocationId { get; set; }
+        public int Quantity { get; set; }
+    }
+
+    // --- Load dữ liệu ---
+    protected override async Task OnInitializedAsync()
+    {
+        purchaseOrder = await DbContext.PurchaseOrders
+            .Include(po => po.Warehouse)
+            .Include(po => po.Items).ThenInclude(i => i.Product)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(po => po.Id == PurchaseOrderId);
+
+        if (purchaseOrder != null)
+        {
+            locations = await DbContext.Locations
+                .Where(l => l.WarehouseId == purchaseOrder.WarehouseId)
+                .ToListAsync();
+            
+            putawayModel.ProductsToPutaway = purchaseOrder.Items.Select(i => new PutawayProductViewModel
+            {
+                ProductId = i.ProductId,
+                ProductName = i.Product?.Name,
+                RequiredQuantity = i.Quantity,
+                Allocations = new List<PutawayAllocationViewModel> { new() } // Bắt đầu với 1 dòng phân bổ
+            }).ToList();
+        }
+    }
+
+    // --- Xử lý cất hàng ---
+    private async Task HandlePutaway()
+    {
+        if (purchaseOrder == null || !putawayModel.IsReadyToCommit)
+        {
+            ToastSvc.ShowToast("Vui lòng phân bổ đủ số lượng cho tất cả sản phẩm.", ToastLevel.Error);
+            return;
+        }
+
+        foreach (var productGroup in putawayModel.ProductsToPutaway)
+        {
+            foreach (var allocation in productGroup.Allocations)
+            {
+                if (allocation.LocationId == 0 || allocation.Quantity <= 0) continue;
+
+                // Kiểm tra vị trí tồn tại
+                var stockLevel = await DbContext.StockLevels
+                    .FirstOrDefaultAsync(sl => sl.ProductId == productGroup.ProductId && sl.LocationId == allocation.LocationId);
+
+                if (stockLevel != null)
+                {
+                    stockLevel.Quantity += allocation.Quantity;
+                }
+                else
+                {
+                    // 🔹 Gắn liên kết đến dòng PurchaseOrderItem tương ứng
+                    var purchaseOrderItem = await DbContext.PurchaseOrderItems
+                        .FirstOrDefaultAsync(poi => poi.PurchaseOrderId == PurchaseOrderId && poi.ProductId == productGroup.ProductId);
+
+                    stockLevel = new StockLevel
+                    {
+                        ProductId = productGroup.ProductId,
+                        LocationId = allocation.LocationId,
+                        Quantity = allocation.Quantity,
+                        ReceivedDate = DateTime.UtcNow,
+                        PurchaseOrderItemId = purchaseOrderItem?.Id // ✅ Gắn đúng PO Item
+                    };
+
+                    DbContext.StockLevels.Add(stockLevel);
+                }
+            }
+        }
+
+        // Cập nhật trạng thái phiếu
+        var poToUpdate = await DbContext.PurchaseOrders.FindAsync(PurchaseOrderId);
+        if (poToUpdate != null)
+        {
+            poToUpdate.Status = "Đã nhận hàng";
+        }
+
+        await DbContext.SaveChangesAsync();
+        
+        ToastSvc.ShowToast("Nhập kho và cất hàng thành công!", ToastLevel.Success);
+        Navigation.NavigateTo("/admin/purchase-orders");
+    }
+}

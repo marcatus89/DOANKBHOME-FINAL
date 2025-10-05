@@ -1,0 +1,65 @@
+@page "/admin/warehouses/{WarehouseId:int}/locations"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+
+@if (warehouse == null)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <h3>Quản lý Vị trí trong Kho: @warehouse.Name</h3>
+    
+    <a href="@($"/admin/warehouses/{WarehouseId}/locations/add")" class="btn btn-primary mb-3">Thêm Vị trí mới</a>
+
+    @if (locations == null || !locations.Any())
+    {
+        <p>Chưa có vị trí nào trong kho này.</p>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Mã Vị trí</th>
+                    <th>Mô tả</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var location in locations)
+                {
+                    <tr>
+                        <td><strong>@location.Code</strong></td>
+                        <td>@location.Description</td>
+                        <td class="text-end">
+                            <a href="@($"/admin/warehouses/{WarehouseId}/locations/edit/{location.Id}")" class="btn btn-sm btn-secondary">Sửa</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    <a href="/admin/warehouses" class="btn btn-outline-secondary mt-3">Quay lại danh sách Kho</a>
+}
+
+@code {
+    [Parameter]
+    public int WarehouseId { get; set; }
+
+    private Warehouse? warehouse;
+    private List<Location>? locations;
+
+    protected override async Task OnInitializedAsync()
+    {
+        warehouse = await DbContext.Warehouses.FindAsync(WarehouseId);
+        if (warehouse != null)
+        {
+            locations = await DbContext.Locations
+                .Where(l => l.WarehouseId == WarehouseId)
+                .OrderBy(l => l.Code)
+                .ToListAsync();
+        }
+    }
+}

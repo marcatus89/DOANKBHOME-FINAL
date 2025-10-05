@@ -1,0 +1,71 @@
+@page "/admin/warehouses/add"
+@page "/admin/warehouses/edit/{WarehouseId:int}"
+@attribute [Authorize(Roles = "Admin")]
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+@inject ToastService ToastSvc
+
+<h3>@Title</h3>
+
+<EditForm Model="@currentWarehouse" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group mb-3">
+        <label>Tên Kho (VD: Kho Chính HCM)</label>
+        <InputText class="form-control" @bind-Value="currentWarehouse.Name" />
+    </div>
+     <div class="form-group mb-3">
+        <label>Địa chỉ</label>
+        <InputText class="form-control" @bind-Value="currentWarehouse.Address" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Lưu</button>
+    <a href="/admin/warehouses" class="btn btn-secondary">Hủy</a>
+</EditForm>
+
+@code {
+    [Parameter]
+    public int WarehouseId { get; set; }
+
+    private Warehouse currentWarehouse = new();
+    private string Title => WarehouseId == 0 ? "Thêm Kho mới" : "Sửa thông tin Kho";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (WarehouseId != 0)
+        {
+            currentWarehouse = await DbContext.Warehouses.FindAsync(WarehouseId) ?? new();
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (WarehouseId == 0) // Logic khi Thêm mới
+        {
+            DbContext.Warehouses.Add(currentWarehouse);
+            await DbContext.SaveChangesAsync(); // Lưu kho trước để có ID
+
+            // --- TỰ ĐỘNG TẠO VỊ TRÍ "HÀNG MẤT" ---
+            var lostLocation = new Location
+            {
+                WarehouseId = currentWarehouse.Id,
+                Code = "HANGMAT",
+                Description = "Vị trí dành cho hàng hóa thất lạc hoặc hư hỏng."
+            };
+            DbContext.Locations.Add(lostLocation);
+            await DbContext.SaveChangesAsync();
+            
+            ToastSvc.ShowToast("Tạo kho mới và vị trí 'Hàng mất' thành công!", ToastLevel.Success);
+        }
+        else // Logic khi Sửa
+        {
+            DbContext.Warehouses.Update(currentWarehouse);
+            await DbContext.SaveChangesAsync();
+            ToastSvc.ShowToast("Cập nhật thông tin kho thành công!", ToastLevel.Success);
+        }
+        
+        Navigation.NavigateTo("/admin/warehouses");
+    }
+}
+

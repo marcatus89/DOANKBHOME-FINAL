@@ -1,0 +1,60 @@
+@page "/admin/warehouses/{WarehouseId:int}/locations/add"
+@page "/admin/warehouses/{WarehouseId:int}/locations/edit/{LocationId:int}"
+@attribute [Authorize(Roles = "Admin")]
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+
+<h3>@Title</h3>
+
+<EditForm Model="@currentLocation" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group mb-3">
+        <label>Mã Vị trí (VD: A-01-B)</label>
+        <InputText class="form-control" @bind-Value="currentLocation.Code" />
+    </div>
+     <div class="form-group mb-3">
+        <label>Mô tả</label>
+        <InputText class="form-control" @bind-Value="currentLocation.Description" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Lưu</button>
+    <a href="@($"/admin/warehouses/{WarehouseId}/locations")" class="btn btn-secondary">Hủy</a>
+</EditForm>
+
+@code {
+    [Parameter]
+    public int WarehouseId { get; set; }
+    [Parameter]
+    public int LocationId { get; set; }
+
+    private Location currentLocation = new();
+    private string Title => LocationId == 0 ? "Thêm Vị trí mới" : "Sửa Vị trí";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (LocationId != 0)
+        {
+            currentLocation = await DbContext.Locations.FindAsync(LocationId) ?? new();
+        }
+        else
+        {
+            currentLocation = new() { WarehouseId = WarehouseId };
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (LocationId == 0)
+        {
+            DbContext.Locations.Add(currentLocation);
+        }
+        else
+        {
+            DbContext.Locations.Update(currentLocation);
+        }
+        await DbContext.SaveChangesAsync();
+        Navigation.NavigateTo($"/admin/warehouses/{WarehouseId}/locations");
+    }
+}

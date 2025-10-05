@@ -1,0 +1,49 @@
+@page "/admin/warehouses"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+
+<h3>Quản lý Kho Hàng</h3>
+
+<a href="/admin/warehouses/add" class="btn btn-primary mb-3">Thêm Kho mới</a>
+
+@if (warehouses == null)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Tên Kho</th>
+                <th>Địa chỉ</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var warehouse in warehouses)
+            {
+                <tr>
+                    <td>@warehouse.Name</td>
+                    <td>@warehouse.Address</td>
+                    <td class="text-end">
+                        @* --- THÊM LINK MỚI ĐỂ QUẢN LÝ VỊ TRÍ --- *@
+                        <a href="@($"admin/warehouses/{warehouse.Id}/locations")" class="btn btn-sm btn-info">Quản lý Vị trí</a>
+                        <a href="@($"admin/warehouses/edit/{warehouse.Id}")" class="btn btn-sm btn-secondary">Sửa</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Warehouse>? warehouses;
+
+    protected override async Task OnInitializedAsync()
+    {
+        warehouses = await DbContext.Warehouses.OrderBy(w => w.Name).ToListAsync();
+    }
+}
+

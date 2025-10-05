@@ -1,0 +1,83 @@
+@page "/admin/products"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+
+<h3>Quản lý Sản phẩm</h3>
+
+<a href="/admin/products/add" class="btn btn-primary mb-3">Thêm sản phẩm mới</a>
+
+@if (productList == null)
+{
+    <LoadingSpinner />
+}
+else
+{
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>Tên Sản phẩm</th>
+                <th class="text-center">Tồn kho Khả dụng (Có thể bán)</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in productList)
+            {
+                <tr>
+                    <td>@product.Name</td>
+                    <td class="text-center">
+                        @if (product.SellableStock == 0)
+                        {
+                            <span class="badge bg-danger">Hết hàng</span>
+                        }
+                        else if (product.SellableStock < 10)
+                        {
+                            <span class="badge bg-warning text-dark">Sắp hết (@product.SellableStock)</span>
+                        }
+                        else
+                        {
+                            @product.SellableStock
+                        }
+                    </td>
+                    <td class="text-end">
+                        <a href="@($"admin/products/edit/{product.Id}")" class="btn btn-sm btn-secondary">Sửa</a>
+                        <a href="@($"admin/inventory-history/{product.Id}")" class="btn btn-sm btn-info">Lịch sử</a>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteProduct(product.Id)">Xóa</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Product>? productList;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Tải đầy đủ thông tin để tính toán SellableStock
+        productList = await DbContext.Products
+            .Include(p => p.StockLevels)
+                .ThenInclude(sl => sl.Location)
+                .ThenInclude(l => l!.Warehouse)
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+    }
+
+    private async Task DeleteProduct(int productId)
+    {
+        var product = await DbContext.Products.FindAsync(productId);
+        if (product != null)
+        {
+            DbContext.Products.Remove(product);
+            await DbContext.SaveChangesAsync();
+            
+            // Xóa sản phẩm khỏi danh sách hiện tại để UI cập nhật ngay lập tức
+            productList?.RemoveAll(p => p.Id == productId);
+            StateHasChanged();
+        }
+    }
+}
+
