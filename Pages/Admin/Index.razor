@@ -1,43 +1,153 @@
 @page "/admin"
 @attribute [Authorize(Roles = "Admin, Sales, Accounting, Warehouse, Logistics, Purchasing")]
 
-<h3>Chào mừng đến Trang Quản trị</h3>
+@using Microsoft.AspNetCore.Components.Authorization
 
-<p>Đây là khu vực quản lý nội bộ dành cho các phòng ban.</p>
+<style>
+    /* ===== DASHBOARD GRID ===== */
+    .admin-dashboard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem; /* tăng khoảng cách giữa các card */
+        margin-top: 2rem;
+        margin-bottom: 2rem;
+    }
 
-<div class="mt-4 d-grid gap-2 d-md-block">
-    
+    /* ===== CARD ===== */
+    .dashboard-card {
+        background: #fff;
+        border: none;
+        border-radius: 1rem;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        padding: 2rem 1.5rem;
+        text-align: center;
+        transition: all 0.25s ease-in-out;
+    }
+
+    .dashboard-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+    }
+
+    .dashboard-card i {
+        font-size: 2.6rem;
+        margin-bottom: 1rem;
+    }
+
+    .dashboard-card h5 {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 0.4rem;
+    }
+
+    .dashboard-card p {
+        font-size: 0.92rem;
+        color: #666;
+        margin-bottom: 1.2rem;
+        line-height: 1.4;
+    }
+
+    .dashboard-card .btn {
+        font-size: 0.9rem;
+        border-radius: 0.5rem;
+        padding: 0.45rem 1.2rem;
+        min-width: 120px;
+    }
+
+    .dashboard-card .btn + .btn {
+        margin-left: 0.5rem;
+        margin-top: 0.4rem;
+    }
+
+    @@media (max-width: 768px) {
+        .dashboard-card {
+            padding: 1.4rem 1rem;
+        }
+        .dashboard-card i {
+            font-size: 2rem;
+        }
+    }
+</style>
+
+<h3 class="fw-bold mb-2">
+    <i class="bi bi-speedometer2 me-2 text-primary"></i>Trang Quản Trị
+</h3>
+<p class="text-muted mb-4">
+    Chào mừng đến hệ thống quản lý nội bộ — chọn phân hệ bạn muốn truy cập.
+</p>
+
+<div class="admin-dashboard">
+    <!-- ADMIN -->
     <AuthorizeView Roles="Admin">
-         <a href="/admin/dashboard" class="btn btn-primary">Dashboard</a>
-        <a href="/admin/products" class="btn btn-info">Quản lý Sản phẩm</a>
-        <a href="/admin/users" class="btn btn-success">Quản lý Người dùng</a>
-        <a href="/admin/categories" class="btn btn-secondary">Quản lý Danh mục</a>
-        <a href="/admin/warehouses" class="btn" style="background-color: #6610f2; color: white;">Quản lý Kho Hàng</a>
+        <div class="dashboard-card">
+            <i class="bi bi-shield-lock text-primary"></i>
+            <h5>Quản trị Hệ thống</h5>
+            <p>Quản lý người dùng, sản phẩm, danh mục và kho hàng.</p>
+            <div>
+                <a href="/admin/dashboard" class="btn btn-primary">Dashboard</a>
+                <a href="/admin/products" class="btn btn-info text-white">Sản phẩm</a>
+                <a href="/admin/categories" class="btn btn-secondary">Danh mục</a>
+                <a href="/admin/users" class="btn btn-success">Người dùng</a>
+                <a href="/admin/warehouses" class="btn text-white" style="background-color:#6610f2;">Kho hàng</a>
+            </div>
+        </div>
     </AuthorizeView>
 
-    <AuthorizeView Roles="Admin, Sales, Accounting, Warehouse, Logistics">
-        <a href="/admin/orders" class="btn btn-warning">Quản lý Đơn hàng (Toàn bộ)</a>
-    </AuthorizeView>
-    
-    <AuthorizeView Roles="Admin, Purchasing">
-         <a href="/admin/suppliers" class="btn btn-dark">Quản lý Nhà cung cấp</a>
-    </AuthorizeView>
-    <AuthorizeView Roles="Admin, Purchasing, Warehouse">
-         <a href="/admin/purchase-orders" class="btn btn-light border">Quản lý Đơn nhập hàng</a>
-    </AuthorizeView>
-    
+    <!-- SALES -->
     <AuthorizeView Roles="Admin, Sales">
-         <a href="/admin/sales" class="btn" style="background-color: #17a2b8; color: white;">Phân hệ Sales</a>
+        <div class="dashboard-card">
+            <i class="bi bi-cart4 text-info"></i>
+            <h5>Phân hệ Sales</h5>
+            <p>Quản lý bán hàng, đơn hàng và doanh thu hiệu quả.</p>
+            <a href="/admin/sales" class="btn btn-info text-white">Truy cập Sales</a>
+        </div>
     </AuthorizeView>
-    
+
+    <!-- WAREHOUSE -->
     <AuthorizeView Roles="Admin, Warehouse">
-         <a href="/admin/warehouse" class="btn" style="background-color: #fd7e14; color: white;">Phân hệ Kho</a>
-         <a href="/admin/inventory" class="btn btn-success">Tổng quan Tồn kho</a>
+        <div class="dashboard-card">
+            <i class="bi bi-box-seam text-warning"></i>
+            <h5>Phân hệ Kho</h5>
+            <p>Theo dõi tồn kho, điều chuyển và nhập hàng dễ dàng.</p>
+            <div>
+                <a href="/admin/warehouse" class="btn btn-warning text-white">Kho hàng</a>
+                <a href="/admin/inventory" class="btn btn-success">Tồn kho</a>
+                <a href="/admin/purchase-orders" class="btn btn-outline-success">Đơn nhập</a>
+            </div>
+        </div>
     </AuthorizeView>
 
+    <!-- PURCHASING -->
+    <AuthorizeView Roles="Admin, Purchasing">
+        <div class="dashboard-card">
+            <i class="bi bi-truck text-dark"></i>
+            <h5>Mua hàng & Nhà cung cấp</h5>
+            <p>Quản lý nhà cung cấp và các đơn nhập hàng.</p>
+            <div>
+                <a href="/admin/suppliers" class="btn btn-dark text-white">Nhà cung cấp</a>
+                <a href="/admin/purchase-orders" class="btn btn-outline-dark">Đơn nhập hàng</a>
+            </div>
+        </div>
+    </AuthorizeView>
+
+    <!-- LOGISTICS -->
     <AuthorizeView Roles="Admin, Logistics">
-         <a href="/admin/logistics" class="btn" style="background-color: #6f42c1; color: white;">Phân hệ Giao nhận</a>
+        <div class="dashboard-card">
+            <i class="bi bi-truck-front" style="color:#6f42c1;"></i>
+            <h5>Phân hệ Giao nhận</h5>
+            <p>Điều phối vận chuyển và theo dõi giao hàng.</p>
+            <a href="/admin/logistics" class="btn text-white" style="background-color:#6f42c1;">Truy cập Giao nhận</a>
+        </div>
     </AuthorizeView>
 
+    <!-- ORDERS -->
+    <AuthorizeView Roles="Admin, Sales, Accounting, Warehouse, Logistics">
+        <div class="dashboard-card">
+            <i class="bi bi-receipt text-warning"></i>
+            <h5>Đơn hàng</h5>
+            <p>Xem, xử lý và theo dõi toàn bộ đơn hàng của công ty.</p>
+            <a href="/admin/orders" class="btn btn-warning text-dark fw-semibold">Quản lý Đơn hàng</a>
+        </div>
+    </AuthorizeView>
 </div>
-
