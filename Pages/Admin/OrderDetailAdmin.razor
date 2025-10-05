@@ -13,29 +13,33 @@
 }
 else
 {
-    @* --- BIÊN BẢN GIAO HÀNG (ĐỂ IN) - ĐÃ ĐƯỢC TỐI ƯU HÓA --- *@
+    @* --- BIÊN BẢN GIAO HÀNG (ĐỂ IN) --- *@
     <div id="printable-area" class="printable-container">
         <div class="invoice-header d-flex align-items-center mb-4">
             <img src="/images/logo.png" class="invoice-logo me-4" alt="Company Logo" />
             <div class="company-details">
                 <strong>Công ty TNHH KBHOME VIETNAM</strong><br />
-                 Showroom HCM 46 Song Hành, Phường Bình Trưng, Thành Phố Hồ Chí Minh.<br />
+                Showroom HCM 46 Song Hành, Phường Bình Trưng, Thành Phố Hồ Chí Minh.<br />
                 Hotline: +84 93 189 48 68
             </div>
         </div>
+
         <h2 class="text-center mt-4">BIÊN BẢN GIAO NHẬN HÀNG HÓA</h2>
         <p class="text-center">Số Đơn hàng: #@CurrentOrder.Id</p>
         <hr />
+
         <p><strong>Khách hàng:</strong> @CurrentOrder.CustomerName</p>
         <p><strong>Địa chỉ giao hàng:</strong> @CurrentOrder.ShippingAddress</p>
         <p><strong>Số điện thoại:</strong> @CurrentOrder.PhoneNumber</p>
         <p><strong>Ngày giao hàng:</strong> @DateTime.Now.ToString("dd/MM/yyyy")</p>
+
         <table class="table table-bordered mt-4">
             <thead>
                 <tr>
                     <th>STT</th>
                     <th>Tên Sản phẩm</th>
                     <th>Số lượng</th>
+                    <th>Giá tiền</th>
                 </tr>
             </thead>
             <tbody>
@@ -46,16 +50,22 @@ else
                         <td>@(count++)</td>
                         <td>@detail.ProductName</td>
                         <td>@detail.Quantity</td>
+                        <td>@detail.Price.ToString("N0") ₫</td>
                     </tr>
                 }
+                <tr class="table-light fw-bold">
+                    <td colspan="3" class="text-end">Tổng cộng:</td>
+                    <td>@GetTotalAmount().ToString("N0") ₫</td>
+                </tr>
             </tbody>
         </table>
-        <div class="signature-section">
-            <div class="signature-box">
+
+        <div class="signature-section mt-4 d-flex justify-content-around">
+            <div class="signature-box text-center">
                 <p><strong>Bên Giao</strong></p>
                 <p>(Ký, họ tên)</p>
             </div>
-            <div class="signature-box">
+            <div class="signature-box text-center">
                 <p><strong>Bên Nhận</strong></p>
                 <p>(Ký, họ tên)</p>
             </div>
@@ -66,14 +76,14 @@ else
     @* --- GIAO DIỆN HIỂN THỊ TRÊN WEB --- *@
     <div id="display-area" class="row">
         <div class="col-md-8">
-            <div class="card">
-                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <strong>Đơn hàng #@CurrentOrder.Id | Trạng thái: 
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Đơn hàng #@CurrentOrder.Id | Trạng thái:
                         <span class="badge @GetStatusBadgeClass(CurrentOrder.Status)">@CurrentOrder.Status</span>
                     </strong>
                     <AuthorizeView Roles="Admin, Logistics">
-                         <button class="btn btn-outline-secondary btn-sm" @onclick="Print">
-                            <span class="oi oi-print"></span> In Biên bản
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="Print">
+                            <i class="bi bi-printer"></i> In Biên bản
                         </button>
                     </AuthorizeView>
                 </div>
@@ -82,26 +92,60 @@ else
                     <p><strong>Tên:</strong> @CurrentOrder.CustomerName</p>
                     <p><strong>Địa chỉ:</strong> @CurrentOrder.ShippingAddress</p>
                     <p><strong>Số điện thoại:</strong> @CurrentOrder.PhoneNumber</p>
-                    
+
                     @if (!string.IsNullOrWhiteSpace(CurrentOrder.SalesNotes))
                     {
-                        <hr/>
+                        <hr />
                         <h4>Ghi chú Sales</h4>
                         <p class="text-muted"><em>@CurrentOrder.SalesNotes</em></p>
                     }
 
-                    @if(CurrentOrder.Shipment != null)
+                    @if (CurrentOrder.Shipment != null)
                     {
-                        <hr/>
+                        <hr />
                         <h4>Thông tin Giao hàng</h4>
                         <p><strong>ĐV Vận chuyển:</strong> @CurrentOrder.Shipment.ShippingProvider</p>
                         <p><strong>Mã vận đơn:</strong> @CurrentOrder.Shipment.TrackingNumber</p>
                     }
+
+                    <hr />
+                    <h4>Chi tiết Sản phẩm</h4>
+                    <table class="table table-sm table-striped mt-2">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Tên SP</th>
+                                <th class="text-center">SL</th>
+                                <th class="text-end">Giá</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{ int i = 1; }
+                            @foreach (var item in CurrentOrder.OrderDetails)
+                            {
+                                <tr>
+                                    <td>@(i++)</td>
+                                    <td>@item.ProductName</td>
+                                    <td class="text-center">@item.Quantity</td>
+                                    <td class="text-end">@item.Price.ToString("N0") ₫</td>
+                                </tr>
+                            }
+                            <tr class="fw-bold table-light">
+                                <td colspan="3" class="text-end">Tổng cộng:</td>
+                                <td class="text-end">@GetTotalAmount().ToString("N0") ₫</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p class="fs-5 fw-bold text-danger text-end mt-3">
+                        Tổng thanh toán: @GetTotalAmount().ToString("N0") ₫
+                    </p>
                 </div>
             </div>
         </div>
+
         <div class="col-md-4">
-             <div class="card">
+            <div class="card shadow-sm">
                 <div class="card-header">Hành động</div>
                 <div class="card-body">
                     <AuthorizeView Roles="Admin">
@@ -120,14 +164,14 @@ else
                         <button class="btn btn-primary w-100" @onclick="UpdateStatus">Cập nhật</button>
                     </AuthorizeView>
 
-                     <AuthorizeView Roles="Sales">
+                    <AuthorizeView Roles="Sales">
                         @if (CurrentOrder.Status == "Chờ xác nhận")
                         {
                             <div class="mb-2">
                                 <label><strong>Ghi chú Sales:</strong></label>
                                 <InputTextArea @bind-Value="salesNoteInput" class="form-control" rows="3" />
                             </div>
-                             <div class="d-grid gap-2">
+                            <div class="d-grid gap-2">
                                 <button class="btn btn-success" @onclick='async () => { newStatus = "Chờ thanh toán"; await UpdateStatus(); }'>Xác nhận đơn</button>
                                 <button class="btn btn-danger" @onclick='async () => { newStatus = "Đã hủy"; await UpdateStatus(); }'>Hủy đơn</button>
                             </div>
@@ -151,7 +195,7 @@ else
                     <AuthorizeView Roles="Logistics">
                         @if (CurrentOrder.Status == "Đang giao")
                         {
-                             <button class="btn btn-success w-100" @onclick='async () => { newStatus = "Hoàn thành"; await UpdateStatus(); }'>Xác nhận Đã giao thành công</button>
+                            <button class="btn btn-success w-100" @onclick='async () => { newStatus = "Hoàn thành"; await UpdateStatus(); }'>Xác nhận Đã giao thành công</button>
                         }
                     </AuthorizeView>
                 </div>
@@ -161,8 +205,8 @@ else
 }
 
 @code {
-    [Parameter]
-    public int OrderId { get; set; }
+    [Parameter] public int OrderId { get; set; }
+
     private Order? CurrentOrder;
     private string newStatus = string.Empty;
     private string? salesNoteInput;
@@ -170,9 +214,10 @@ else
     protected override async Task OnInitializedAsync()
     {
         CurrentOrder = await DbContext.Orders
-                                    .Include(o => o.Shipment)
-                                    .Include(o => o.OrderDetails)
-                                    .FirstOrDefaultAsync(o => o.Id == OrderId);
+            .Include(o => o.Shipment)
+            .Include(o => o.OrderDetails)
+            .FirstOrDefaultAsync(o => o.Id == OrderId);
+
         if (CurrentOrder != null)
         {
             newStatus = CurrentOrder.Status;
@@ -185,32 +230,33 @@ else
         if (CurrentOrder != null && !string.IsNullOrEmpty(newStatus))
         {
             CurrentOrder.Status = newStatus;
-            if(!string.IsNullOrWhiteSpace(salesNoteInput))
-            {
+            if (!string.IsNullOrWhiteSpace(salesNoteInput))
                 CurrentOrder.SalesNotes = salesNoteInput;
-            }
 
             if (newStatus == "Hoàn thành" && CurrentOrder.Shipment != null)
-            {
                 CurrentOrder.Shipment.DeliveredDate = DateTime.Now;
-            }
 
             await DbContext.SaveChangesAsync();
             StateHasChanged();
         }
     }
-    
-    private string GetStatusBadgeClass(string status)
+
+    private string GetStatusBadgeClass(string status) => status switch
     {
-        return status switch
-        {
-            "Hoàn thành" => "bg-success",
-            "Đã hủy" => "bg-danger",
-            "Đang giao" => "bg-primary",
-            "Sẵn sàng giao hàng" => "bg-warning text-dark",
-            "Chờ thanh toán" => "bg-info text-dark",
-            _ => "bg-secondary"
-        };
+        "Hoàn thành" => "bg-success",
+        "Đã hủy" => "bg-danger",
+        "Đang giao" => "bg-primary",
+        "Sẵn sàng giao hàng" => "bg-warning text-dark",
+        "Chờ thanh toán" => "bg-info text-dark",
+        _ => "bg-secondary"
+    };
+
+    private decimal GetTotalAmount()
+    {
+        if (CurrentOrder?.OrderDetails == null || !CurrentOrder.OrderDetails.Any())
+            return 0;
+
+        return CurrentOrder.OrderDetails.Sum(d => d.Quantity * d.Price);
     }
 
     private async Task Print()
@@ -218,4 +264,3 @@ else
         await JSRuntime.InvokeVoidAsync("triggerPrint");
     }
 }
-
