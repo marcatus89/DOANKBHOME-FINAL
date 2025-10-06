@@ -1,61 +1,220 @@
-@page "/admin/inventory-history/{ProductId:int}"
+@page "/admin/inventory-history"
 @attribute [Authorize(Roles = "Admin, Warehouse")]
 @using Microsoft.EntityFrameworkCore
 @inject ApplicationDbContext DbContext
+@inject NavigationManager Nav
 
-@if (product == null)
+<h3 class="mb-4 fw-bold text-primary"><i class="bi bi-clock-history me-2"></i>Lịch sử thay đổi tồn kho</h3>
+
+<!-- BỘ LỌC -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-gradient text-white" style="background: linear-gradient(90deg,#007bff,#6610f2);">
+        <i class="bi bi-funnel-fill me-2"></i>Bộ lọc nâng cao
+    </div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Tên sản phẩm</label>
+                <InputText class="form-control form-control-sm" @bind-Value="filter.ProductName" placeholder="VD: Bình nước..." />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Kho</label>
+                <InputText class="form-control form-control-sm" @bind-Value="filter.WarehouseName" placeholder="VD: Kho Chính..." />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Loại hành động</label>
+                <InputSelect class="form-select form-select-sm" @bind-Value="filter.ReasonType">
+                    <option value="">-- Tất cả --</option>
+                    <option>Nhập hàng</option>
+                    <option>Xuất hàng</option>
+                    <option>Chuyển kho</option>
+                    <option>Chuyển vị trí</option>
+                    <option>Điều chỉnh tồn</option>
+                </InputSelect>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Người thao tác</label>
+                <InputText class="form-control form-control-sm" @bind-Value="filter.UserName" placeholder="Tên người dùng..." />
+            </div>
+        </div>
+
+        <div class="row g-3 mt-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Từ ngày</label>
+                <InputDate class="form-control form-control-sm" @bind-Value="filter.FromDate" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Đến ngày</label>
+                <InputDate class="form-control form-control-sm" @bind-Value="filter.ToDate" />
+            </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-sm btn-primary px-3 me-2" @onclick="ApplyFilter">
+                    <i class="bi bi-search me-1"></i>Áp dụng lọc
+                </button>
+                <button class="btn btn-sm btn-outline-secondary px-3" @onclick="ClearFilter">
+                    <i class="bi bi-x-circle me-1"></i>Xóa lọc
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (isLoading)
 {
     <LoadingSpinner />
 }
+else if (logs == null || logs.Count == 0)
+{
+    <div class="alert alert-warning">Không tìm thấy dữ liệu tồn kho phù hợp.</div>
+}
 else
 {
-    <h3>Lịch sử Tồn kho: @product.Name</h3>
-
-    <table class="table table-striped mt-4">
-        <thead>
-            <tr>
-                <th>Thời gian</th>
-                <th>Lý do</th>
-                <th class="text-end">Thay đổi</th>
-                <th class="text-end">Tồn kho mới</th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (logs != null)
-            {
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered align-middle shadow-sm">
+            <thead class="table-primary">
+                <tr class="text-center align-middle">
+                    <th>Thời gian</th>
+                    <th>Sản phẩm</th>
+                    <th>Kho / Vị trí</th>
+                    <th>Loại hành động</th>
+                    <th class="text-end">Thay đổi</th>
+                    <th class="text-end">Tồn mới</th>
+                    <th>Người thao tác</th>
+                    <th>Mã phiếu / Ghi chú</th>
+                </tr>
+            </thead>
+            <tbody>
                 @foreach (var log in logs)
                 {
                     <tr>
                         <td>@log.Timestamp.ToString("dd/MM/yyyy HH:mm")</td>
-                        <td>@log.Reason</td>
-                        <td class="text-end @(log.QuantityChange >= 0 ? "text-success" : "text-danger")">
-                            <strong>@log.QuantityChange.ToString("+#;-#;0")</strong>
+                        <td>@log.ProductName</td>
+                        <td>@($"{log.WarehouseName} - {log.LocationCode}")</td>
+                        <td class="text-center">
+                            <span class="badge @GetReasonBadgeClass(log.Reason)">
+                                <i class="@GetReasonIcon(log.Reason) me-1"></i>@log.Reason
+                            </span>
+                        </td>
+                        <td class="text-end @(log.QuantityChange >= 0 ? "text-success fw-bold" : "text-danger fw-bold")">
+                            @log.QuantityChange.ToString("+#;-#;0")
                         </td>
                         <td class="text-end">@log.NewQuantity</td>
+                        <td>@log.UserName</td>
+                        <td>@log.Note</td>
                     </tr>
                 }
-            }
-        </tbody>
-    </table>
-     <a href="/admin/products" class="btn btn-secondary">Quay lại</a>
+            </tbody>
+        </table>
+    </div>
 }
-
 @code {
-    [Parameter]
-    public int ProductId { get; set; }
+    private List<InventoryLogViewModel>? logs;
+    private bool isLoading = true;
+    private FilterModel filter = new();
 
-    private Product? product;
-    private List<InventoryLog>? logs;
+    #region Models
+    public class InventoryLogViewModel
+    {
+        public DateTime Timestamp { get; set; }
+        public string ProductName { get; set; } = "";
+        public string WarehouseName { get; set; } = "";
+        public string LocationCode { get; set; } = "";
+        public string Reason { get; set; } = "";
+        public int QuantityChange { get; set; }
+        public int NewQuantity { get; set; }
+        public string UserName { get; set; } = "";
+        public string Note { get; set; } = "";
+    }
+
+    public class FilterModel
+    {
+        public string? ProductName { get; set; }
+        public string? WarehouseName { get; set; }
+        public string? ReasonType { get; set; }
+        public string? UserName { get; set; }
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
+    }
+    #endregion
 
     protected override async Task OnInitializedAsync()
     {
-        product = await DbContext.Products.FindAsync(ProductId);
-        if (product != null)
-        {
-            logs = await DbContext.InventoryLogs
-                .Where(l => l.ProductId == ProductId)
-                .OrderByDescending(l => l.Timestamp)
-                .ToListAsync();
-        }
+        await LoadLogs();
     }
+
+    private async Task LoadLogs()
+    {
+        isLoading = true;
+        var query = DbContext.InventoryLogs
+            .Include(l => l.Product)
+            .OrderByDescending(l => l.Timestamp)
+            .AsQueryable();
+
+        // Áp dụng lọc
+        if (!string.IsNullOrWhiteSpace(filter.ProductName))
+            query = query.Where(l => l.Product!.Name.Contains(filter.ProductName));
+
+        if (!string.IsNullOrWhiteSpace(filter.ReasonType))
+            query = query.Where(l => l.Reason.Contains(filter.ReasonType));
+
+        if (filter.FromDate.HasValue)
+            query = query.Where(l => l.Timestamp >= filter.FromDate.Value);
+
+        if (filter.ToDate.HasValue)
+            query = query.Where(l => l.Timestamp <= filter.ToDate.Value);
+
+        var list = await query.ToListAsync();
+
+        logs = list.Select(l => ParseLog(l)).ToList();
+        isLoading = false;
+    }
+
+    private InventoryLogViewModel ParseLog(InventoryLog l)
+    {
+        // Tách thông tin từ Reason (các log bạn sẽ ghi có cấu trúc chuẩn)
+        string warehouse = "", location = "", user = "", note = "", reasonType = l.Reason;
+        var parts = l.Reason.Split('|', StringSplitOptions.TrimEntries);
+        foreach (var p in parts)
+        {
+            if (p.StartsWith("Kho:")) warehouse = p.Replace("Kho:", "").Trim();
+            else if (p.StartsWith("Vị trí:")) location = p.Replace("Vị trí:", "").Trim();
+            else if (p.StartsWith("User:")) user = p.Replace("User:", "").Trim();
+            else if (p.StartsWith("Ghi chú:")) note = p.Replace("Ghi chú:", "").Trim();
+            else if (p.StartsWith("Loại:")) reasonType = p.Replace("Loại:", "").Trim();
+        }
+
+        return new InventoryLogViewModel
+        {
+            Timestamp = l.Timestamp,
+            ProductName = l.Product?.Name ?? "(Không xác định)",
+            Reason = reasonType,
+            QuantityChange = l.QuantityChange,
+            NewQuantity = l.NewQuantity,
+            WarehouseName = warehouse,
+            LocationCode = location,
+            UserName = user,
+            Note = note
+        };
+    }
+
+    private string GetReasonBadgeClass(string reason) => reason switch
+    {
+        var r when r.Contains("Nhập") => "bg-success",
+        var r when r.Contains("Xuất") => "bg-danger",
+        var r when r.Contains("Chuyển") => "bg-warning text-dark",
+        var r when r.Contains("Điều chỉnh") => "bg-info text-dark",
+        _ => "bg-secondary"
+    };
+
+    private string GetReasonIcon(string reason) => reason switch
+    {
+        var r when r.Contains("Nhập") => "bi bi-box-arrow-in-down",
+        var r when r.Contains("Xuất") => "bi bi-box-arrow-up",
+        var r when r.Contains("Chuyển") => "bi bi-arrow-left-right",
+        var r when r.Contains("Điều chỉnh") => "bi bi-pencil-square",
+        _ => "bi bi-info-circle"
+    };
+
+    private async Task ApplyFilter() => await LoadLogs();
+    private async Task ClearFilter() { filter = new(); await LoadLogs(); }
 }

@@ -13,7 +13,7 @@
 }
 else
 {
-    @* --- BIÊN BẢN GIAO HÀNG (ĐỂ IN) --- *@
+    <!-- PHẦN IN BIÊN BẢN -->
     <div id="printable-area" class="printable-container">
         <div class="invoice-header d-flex align-items-center mb-4">
             <img src="/images/logo.png" class="invoice-logo me-4" alt="Company Logo" />
@@ -27,7 +27,6 @@ else
         <h2 class="text-center mt-4">BIÊN BẢN GIAO NHẬN HÀNG HÓA</h2>
         <p class="text-center">Số Đơn hàng: #@CurrentOrder.Id</p>
         <hr />
-
         <p><strong>Khách hàng:</strong> @CurrentOrder.CustomerName</p>
         <p><strong>Địa chỉ giao hàng:</strong> @CurrentOrder.ShippingAddress</p>
         <p><strong>Số điện thoại:</strong> @CurrentOrder.PhoneNumber</p>
@@ -59,28 +58,19 @@ else
                 </tr>
             </tbody>
         </table>
-
-        <div class="signature-section mt-4 d-flex justify-content-around">
-            <div class="signature-box text-center">
-                <p><strong>Bên Giao</strong></p>
-                <p>(Ký, họ tên)</p>
-            </div>
-            <div class="signature-box text-center">
-                <p><strong>Bên Nhận</strong></p>
-                <p>(Ký, họ tên)</p>
-            </div>
-        </div>
-        <p class="mt-4"><i>Xác nhận đã nhận đủ số lượng, đúng quy cách, chất lượng hàng hóa.</i></p>
     </div>
 
-    @* --- GIAO DIỆN HIỂN THỊ TRÊN WEB --- *@
-    <div id="display-area" class="row">
+    <!-- GIAO DIỆN WEB -->
+    <div class="row">
         <div class="col-md-8">
             <div class="card mb-4 shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <strong>Đơn hàng #@CurrentOrder.Id | Trạng thái:
-                        <span class="badge @GetStatusBadgeClass(CurrentOrder.Status)">@CurrentOrder.Status</span>
+                    <strong>Đơn hàng #@CurrentOrder.Id | 
+                        <span class="badge @GetStatusBadgeClass(CurrentOrder.Status)">
+                            @CurrentOrder.Status
+                        </span>
                     </strong>
+
                     <AuthorizeView Roles="Admin, Logistics">
                         <button class="btn btn-outline-secondary btn-sm" @onclick="Print">
                             <i class="bi bi-printer"></i> In Biên bản
@@ -91,22 +81,7 @@ else
                     <h4>Thông tin Khách hàng</h4>
                     <p><strong>Tên:</strong> @CurrentOrder.CustomerName</p>
                     <p><strong>Địa chỉ:</strong> @CurrentOrder.ShippingAddress</p>
-                    <p><strong>Số điện thoại:</strong> @CurrentOrder.PhoneNumber</p>
-
-                    @if (!string.IsNullOrWhiteSpace(CurrentOrder.SalesNotes))
-                    {
-                        <hr />
-                        <h4>Ghi chú Sales</h4>
-                        <p class="text-muted"><em>@CurrentOrder.SalesNotes</em></p>
-                    }
-
-                    @if (CurrentOrder.Shipment != null)
-                    {
-                        <hr />
-                        <h4>Thông tin Giao hàng</h4>
-                        <p><strong>ĐV Vận chuyển:</strong> @CurrentOrder.Shipment.ShippingProvider</p>
-                        <p><strong>Mã vận đơn:</strong> @CurrentOrder.Shipment.TrackingNumber</p>
-                    }
+                    <p><strong>SĐT:</strong> @CurrentOrder.PhoneNumber</p>
 
                     <hr />
                     <h4>Chi tiết Sản phẩm</h4>
@@ -148,56 +123,73 @@ else
             <div class="card shadow-sm">
                 <div class="card-header">Hành động</div>
                 <div class="card-body">
-                    <AuthorizeView Roles="Admin">
-                        <div class="mb-2">
-                            <label>Cập nhật trạng thái (Admin):</label>
-                            <InputSelect class="form-select" @bind-Value="newStatus">
-                                <option value="Chờ xác nhận">Chờ xác nhận</option>
-                                <option value="Chờ thanh toán">Chờ thanh toán</option>
-                                <option value="Đã thanh toán">Đã thanh toán</option>
-                                <option value="Sẵn sàng giao hàng">Sẵn sàng giao hàng</option>
-                                <option value="Đang giao">Đang giao</option>
-                                <option value="Hoàn thành">Hoàn thành</option>
-                                <option value="Đã hủy">Đã hủy</option>
-                            </InputSelect>
+
+                    @* 🔒 Nếu đơn hàng đã hoàn thành hoặc hủy, ẩn toàn bộ chức năng cập nhật *@
+                    @if (IsOrderLocked())
+                    {
+                        <div class="alert alert-secondary text-center">
+                            <i class="bi bi-lock-fill me-2"></i>
+                            Đơn hàng này đã <strong>@CurrentOrder.Status</strong> — không thể cập nhật thêm.
                         </div>
-                        <button class="btn btn-primary w-100" @onclick="UpdateStatus">Cập nhật</button>
-                    </AuthorizeView>
-
-                    <AuthorizeView Roles="Sales">
-                        @if (CurrentOrder.Status == "Chờ xác nhận")
-                        {
+                    }
+                    else
+                    {
+                        <!-- ADMIN -->
+                        <AuthorizeView Roles="Admin">
                             <div class="mb-2">
-                                <label><strong>Ghi chú Sales:</strong></label>
-                                <InputTextArea @bind-Value="salesNoteInput" class="form-control" rows="3" />
+                                <label>Cập nhật trạng thái (Admin):</label>
+                                <InputSelect class="form-select" @bind-Value="newStatus">
+                                    <option value="Chờ xác nhận">Chờ xác nhận</option>
+                                    <option value="Chờ thanh toán">Chờ thanh toán</option>
+                                    <option value="Đã thanh toán">Đã thanh toán</option>
+                                    <option value="Sẵn sàng giao hàng">Sẵn sàng giao hàng</option>
+                                    <option value="Đang giao">Đang giao</option>
+                                    <option value="Hoàn thành">Hoàn thành</option>
+                                    <option value="Đã hủy">Đã hủy</option>
+                                </InputSelect>
                             </div>
-                            <div class="d-grid gap-2">
-                                <button class="btn btn-success" @onclick='async () => { newStatus = "Chờ thanh toán"; await UpdateStatus(); }'>Xác nhận đơn</button>
-                                <button class="btn btn-danger" @onclick='async () => { newStatus = "Đã hủy"; await UpdateStatus(); }'>Hủy đơn</button>
-                            </div>
-                        }
-                    </AuthorizeView>
+                            <button class="btn btn-primary w-100" @onclick="UpdateStatus">Cập nhật</button>
+                        </AuthorizeView>
 
-                    <AuthorizeView Roles="Accounting">
-                        @if (CurrentOrder.Status == "Chờ thanh toán")
-                        {
-                            <button class="btn btn-success w-100" @onclick='async () => { newStatus = "Đã thanh toán"; await UpdateStatus(); }'>Xác nhận Đã thanh toán</button>
-                        }
-                    </AuthorizeView>
+                        <!-- SALES -->
+                        <AuthorizeView Roles="Sales">
+                            @if (CurrentOrder.Status == "Chờ xác nhận")
+                            {
+                                <div class="mb-2">
+                                    <label><strong>Ghi chú Sales:</strong></label>
+                                    <InputTextArea @bind-Value="salesNoteInput" class="form-control" rows="3" />
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-success" @onclick='async () => { newStatus = "Chờ thanh toán"; await UpdateStatus(); }'>Xác nhận đơn</button>
+                                    <button class="btn btn-danger" @onclick='async () => { newStatus = "Đã hủy"; await UpdateStatus(); }'>Hủy đơn</button>
+                                </div>
+                            }
+                        </AuthorizeView>
 
-                    <AuthorizeView Roles="Warehouse">
-                        @if (CurrentOrder.Status == "Đã thanh toán")
-                        {
-                            <button class="btn btn-info w-100" @onclick='async () => { newStatus = "Sẵn sàng giao hàng"; await UpdateStatus(); }'>Xác nhận Đã chuẩn bị hàng</button>
-                        }
-                    </AuthorizeView>
+                        <!-- ACCOUNTING -->
+                        <AuthorizeView Roles="Accounting">
+                            @if (CurrentOrder.Status == "Chờ thanh toán")
+                            {
+                                <button class="btn btn-success w-100" @onclick='async () => { newStatus = "Đã thanh toán"; await UpdateStatus(); }'>Xác nhận Đã thanh toán</button>
+                            }
+                        </AuthorizeView>
 
-                    <AuthorizeView Roles="Logistics">
-                        @if (CurrentOrder.Status == "Đang giao")
-                        {
-                            <button class="btn btn-success w-100" @onclick='async () => { newStatus = "Hoàn thành"; await UpdateStatus(); }'>Xác nhận Đã giao thành công</button>
-                        }
-                    </AuthorizeView>
+                        <!-- WAREHOUSE -->
+                        <AuthorizeView Roles="Warehouse">
+                            @if (CurrentOrder.Status == "Đã thanh toán")
+                            {
+                                <button class="btn btn-info w-100" @onclick='async () => { newStatus = "Sẵn sàng giao hàng"; await UpdateStatus(); }'>Xác nhận Đã chuẩn bị hàng</button>
+                            }
+                        </AuthorizeView>
+
+                        <!-- LOGISTICS -->
+                        <AuthorizeView Roles="Logistics">
+                            @if (CurrentOrder.Status == "Đang giao")
+                            {
+                                <button class="btn btn-success w-100" @onclick='async () => { newStatus = "Hoàn thành"; await UpdateStatus(); }'>Xác nhận Đã giao thành công</button>
+                            }
+                        </AuthorizeView>
+                    }
                 </div>
             </div>
         </div>
@@ -225,11 +217,18 @@ else
         }
     }
 
+    private bool IsOrderLocked() =>
+        CurrentOrder != null && 
+        (CurrentOrder.Status == "Hoàn thành" || CurrentOrder.Status == "Đã hủy");
+
     private async Task UpdateStatus()
     {
+        if (IsOrderLocked()) return; // 🔒 Không cho phép cập nhật nếu đã hoàn thành hoặc hủy
+
         if (CurrentOrder != null && !string.IsNullOrEmpty(newStatus))
         {
             CurrentOrder.Status = newStatus;
+
             if (!string.IsNullOrWhiteSpace(salesNoteInput))
                 CurrentOrder.SalesNotes = salesNoteInput;
 
@@ -251,16 +250,11 @@ else
         _ => "bg-secondary"
     };
 
-    private decimal GetTotalAmount()
-    {
-        if (CurrentOrder?.OrderDetails == null || !CurrentOrder.OrderDetails.Any())
-            return 0;
+    private decimal GetTotalAmount() =>
+        (CurrentOrder?.OrderDetails == null)
+        ? 0
+        : CurrentOrder.OrderDetails.Sum(d => d.Quantity * d.Price);
 
-        return CurrentOrder.OrderDetails.Sum(d => d.Quantity * d.Price);
-    }
-
-    private async Task Print()
-    {
+    private async Task Print() =>
         await JSRuntime.InvokeVoidAsync("triggerPrint");
-    }
 }

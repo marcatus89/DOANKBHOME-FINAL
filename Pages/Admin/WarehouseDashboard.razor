@@ -28,7 +28,6 @@
                         {
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 Đơn hàng #@order.Id - @order.CustomerName
-                                @* --- SỬA LỖI: CẬP NHẬT LINK ĐỂ TRỎ ĐẾN TRANG LẤY HÀNG --- *@
                                 <a href="@($"/admin/warehouse/pick/{order.Id}")" class="btn btn-sm btn-info">Lấy hàng & Đóng gói</a>
                             </li>
                         }
