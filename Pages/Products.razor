@@ -5,15 +5,23 @@
 @inject ApplicationDbContext DbContext
 
 <div class="container-fluid">
-    <h2 class="section-title">Tất cả Sản phẩm</h2>
+    <h2 class="section-title text-center my-4">
+        <i class="bi bi-bag-check-fill me-2 text-primary"></i>Tất cả Sản phẩm
+    </h2>
     <hr class="section-divider" />
-    
-    @* Thêm component bộ lọc vào đây *@
+
+    <!-- Bộ lọc sắp xếp -->
     <FilterControls SortChanged="ApplySort" />
 
     @if (pagedProducts == null)
     {
         <LoadingSpinner />
+    }
+    else if (!pagedProducts.Any())
+    {
+        <div class="alert alert-info text-center mt-4">
+            Hiện chưa có sản phẩm nào được đăng bán.
+        </div>
     }
     else
     {
@@ -21,22 +29,24 @@
             @foreach (var product in pagedProducts)
             {
                 <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="card h-100 product-card">
+                    <div class="card h-100 product-card shadow-sm">
                         <a href="@($"/san-pham/{product.Id}")">
-                            <img class="card-img-top" src="@product.ImageUrl" alt="@product.Name">
+                            <img class="card-img-top" src="@product.ImageUrl" alt="@product.Name" style="object-fit: cover; height: 280px;">
                         </a>
                         <div class="card-body text-center">
-                            <h5 class="card-title">
-                                <a href="@($"/san-pham/{product.Id}")">@product.Name</a>
+                            <h5 class="card-title mb-2">
+                                <a href="@($"/san-pham/{product.Id}")" class="text-decoration-none text-dark fw-semibold">
+                                    @product.Name
+                                </a>
                             </h5>
-                            <h6 class="price-tag">@product.Price.ToString("n0") VNĐ</h6>
+                            <h6 class="price-tag text-primary">@product.Price.ToString("n0") VNĐ</h6>
                         </div>
                     </div>
                 </div>
             }
         </div>
 
-        @* Thanh phân trang *@
+        <!-- Phân trang -->
         <nav aria-label="Page navigation">
             <ul class="pagination justify-content-center">
                 <li class="page-item @(currentPage == 1 ? "disabled" : "")">
@@ -44,9 +54,8 @@
                 </li>
                 @for (int i = 1; i <= totalPages; i++)
                 {
-                    var pageNum = i;
-                    <li class="page-item @(currentPage == pageNum ? "active" : "")">
-                        <a class="page-link" href="@($"/san-pham/page/{pageNum}")">@pageNum</a>
+                    <li class="page-item @(currentPage == i ? "active" : "")">
+                        <a class="page-link" href="@($"/san-pham/page/{i}")">@i</a>
                     </li>
                 }
                 <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
@@ -56,7 +65,6 @@
         </nav>
     }
 </div>
-
 
 @code {
     [Parameter]
@@ -77,9 +85,12 @@
     {
         currentPage = PageNumber < 1 ? 1 : PageNumber;
 
-        var query = DbContext.Products.AsQueryable();
-        
-       
+        // ✅ Chỉ lấy sản phẩm được phép hiển thị
+        var query = DbContext.Products
+            .Where(p => p.IsPublished)  // ← Thêm điều kiện này
+            .AsQueryable();
+
+        // Sắp xếp theo lựa chọn
         switch (currentSort)
         {
             case "price_asc":
@@ -95,17 +106,16 @@
 
         var totalProducts = await query.CountAsync();
         totalPages = (int)Math.Ceiling(totalProducts / (double)pageSize);
-        
+
         pagedProducts = await query
-                                .Skip((currentPage - 1) * pageSize)
-                                .Take(pageSize)
-                                .ToListAsync();
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
     }
 
     private async Task ApplySort(string sort)
     {
         currentSort = sort;
-        
         await LoadProducts();
     }
 }

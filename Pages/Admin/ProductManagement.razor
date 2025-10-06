@@ -3,30 +3,95 @@
 @using Microsoft.EntityFrameworkCore
 @inject ApplicationDbContext DbContext
 @inject NavigationManager Navigation
+@inject ToastService ToastSvc
 
-<h3>Quản lý Sản phẩm</h3>
+<h3 class="fw-bold text-primary mb-4">
+    <i class="bi bi-box-seam me-2"></i>Quản lý Sản phẩm
+</h3>
 
-<a href="/admin/products/add" class="btn btn-primary mb-3">Thêm sản phẩm mới</a>
+<!-- Nút thêm sản phẩm -->
+<a href="/admin/products/add" class="btn btn-primary mb-3">
+    <i class="bi bi-plus-circle me-1"></i> Thêm sản phẩm mới
+</a>
+
+<!-- 🔎 Bộ lọc tìm kiếm -->
+<div class="card shadow-sm mb-4 border-0">
+    <div class="card-header bg-primary text-white">
+        <i class="bi bi-funnel me-2"></i>Bộ lọc tìm kiếm
+    </div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-secondary">Tên sản phẩm</label>
+                <InputText class="form-control form-control-sm" @bind-Value="filter.Name" placeholder="Nhập tên..." />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-secondary">Giá từ</label>
+                <InputNumber class="form-control form-control-sm" @bind-Value="filter.MinPrice" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-secondary">Đến</label>
+                <InputNumber class="form-control form-control-sm" @bind-Value="filter.MaxPrice" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-secondary">Tồn kho tối thiểu</label>
+                <InputNumber class="form-control form-control-sm" @bind-Value="filter.MinStock" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-secondary">Trạng thái</label>
+                <select class="form-select form-select-sm" @bind="filter.Status">
+                    <option value="">Tất cả</option>
+                    <option value="true">Đang hiển thị</option>
+                    <option value="false">Ẩn</option>
+                </select>
+            </div>
+            <div class="col-md-1 text-end">
+                <button class="btn btn-sm btn-primary w-100" @onclick="ApplyFilter">
+                    Lọc
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @if (productList == null)
 {
     <LoadingSpinner />
 }
+else if (!productList.Any())
+{
+    <div class="alert alert-info mt-4">
+        Không có sản phẩm nào phù hợp với bộ lọc.
+    </div>
+}
 else
 {
-    <table class="table table-hover">
+    <table class="table table-hover align-middle shadow-sm">
         <thead class="table-light">
-            <tr>
-                <th>Tên Sản phẩm</th>
-                <th class="text-center">Tồn kho Khả dụng (Có thể bán)</th>
-                <th></th>
+            <tr class="text-center">
+                <th>Tên sản phẩm</th>
+                <th>Tồn kho khả dụng</th>
+                <th>Giá bán</th>
+                <th>Trạng thái đăng</th>
+                <th>Hành động</th>
             </tr>
         </thead>
         <tbody>
             @foreach (var product in productList)
             {
                 <tr>
-                    <td>@product.Name</td>
+                    <td class="text-start">
+                        <div class="d-flex align-items-center">
+                            @if (!string.IsNullOrEmpty(product.ImageUrl))
+                            {
+                                <img src="@product.ImageUrl" alt="@product.Name"
+                                     class="me-2 rounded shadow-sm"
+                                     style="width: 45px; height: 45px; object-fit: cover;" />
+                            }
+                            <span class="fw-semibold">@product.Name</span>
+                        </div>
+                    </td>
+
                     <td class="text-center">
                         @if (product.SellableStock == 0)
                         {
@@ -38,13 +103,38 @@ else
                         }
                         else
                         {
-                            @product.SellableStock
+                            <span>@product.SellableStock</span>
                         }
                     </td>
+
+                    <td class="text-end">@product.Price.ToString("N0") ₫</td>
+
+                    <!-- 🟢 Trạng thái đăng -->
+                    <td class="text-center">
+                        <div class="d-flex flex-column align-items-center">
+                            <div class="form-check mb-1">
+                                <input type="checkbox" class="form-check-input"
+                                       checked="@product.IsPublished"
+                                       @onchange="async (e) => await TogglePublish(product.Id, (bool)e.Value)" />
+                            </div>
+                            <br>
+                            <small class="text-muted">
+                                @(product.IsPublished ? "Đang hiển thị" : "Ẩn")
+                            </small>
+                        </div>
+                    </td>
+
+                    <!-- ⚙️ Hành động -->
                     <td class="text-end">
-                        <a href="@($"admin/products/edit/{product.Id}")" class="btn btn-sm btn-secondary">Sửa</a>
-                        <a href="@($"admin/inventory-history/{product.Id}")" class="btn btn-sm btn-info">Lịch sử</a>
-                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteProduct(product.Id)">Xóa</button>
+                        <a href="@($"admin/products/edit/{product.Id}")" class="btn btn-sm btn-secondary me-1">
+                            <i class="bi bi-pencil-square"></i> Sửa
+                        </a>
+                        <a href="@($"admin/inventory-history/{product.Id}")" class="btn btn-sm btn-info me-1">
+                            <i class="bi bi-clock-history"></i> Lịch sử
+                        </a>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteProduct(product.Id)">
+                            <i class="bi bi-trash"></i> Xóa
+                        </button>
                     </td>
                 </tr>
             }
@@ -54,16 +144,75 @@ else
 
 @code {
     private List<Product>? productList;
+    private ProductFilter filter = new();
+
+    #region Filter Model
+    public class ProductFilter
+    {
+        public string? Name { get; set; }
+        public decimal? MinPrice { get; set; }
+        public decimal? MaxPrice { get; set; }
+        public int? MinStock { get; set; }
+        public string? Status { get; set; } // "true" / "false"
+    }
+    #endregion
 
     protected override async Task OnInitializedAsync()
     {
-        // Tải đầy đủ thông tin để tính toán SellableStock
-        productList = await DbContext.Products
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        var query = DbContext.Products
             .Include(p => p.StockLevels)
                 .ThenInclude(sl => sl.Location)
                 .ThenInclude(l => l!.Warehouse)
-            .OrderBy(p => p.Name)
-            .ToListAsync();
+            .AsQueryable();
+
+        // Áp dụng bộ lọc
+        if (!string.IsNullOrWhiteSpace(filter.Name))
+            query = query.Where(p => p.Name!.Contains(filter.Name));
+
+        if (filter.MinPrice.HasValue)
+            query = query.Where(p => p.Price >= filter.MinPrice.Value);
+
+        if (filter.MaxPrice.HasValue)
+            query = query.Where(p => p.Price <= filter.MaxPrice.Value);
+
+        if (filter.MinStock.HasValue)
+            query = query.Where(p => p.StockLevels.Sum(sl => sl.Quantity) >= filter.MinStock.Value);
+
+        if (!string.IsNullOrEmpty(filter.Status))
+        {
+            bool isPublished = bool.Parse(filter.Status);
+            query = query.Where(p => p.IsPublished == isPublished);
+        }
+
+        productList = await query.OrderBy(p => p.Name).ToListAsync();
+    }
+
+    private async Task ApplyFilter()
+    {
+        await LoadProducts();
+    }
+
+    private async Task TogglePublish(int productId, bool isPublished)
+    {
+        var product = await DbContext.Products.FindAsync(productId);
+        if (product != null)
+        {
+            product.IsPublished = isPublished;
+            await DbContext.SaveChangesAsync();
+
+            var message = isPublished
+                ? $"✅ {product.Name} đã được đăng bán trên website."
+                : $"🚫 {product.Name} đã được ẩn khỏi website.";
+            var level = isPublished ? ToastLevel.Success : ToastLevel.Warning;
+            ToastSvc.ShowToast(message, level);
+
+            await LoadProducts();
+        }
     }
 
     private async Task DeleteProduct(int productId)
@@ -73,11 +222,10 @@ else
         {
             DbContext.Products.Remove(product);
             await DbContext.SaveChangesAsync();
-            
-            // Xóa sản phẩm khỏi danh sách hiện tại để UI cập nhật ngay lập tức
+
             productList?.RemoveAll(p => p.Id == productId);
+            ToastSvc.ShowToast("🗑️ Đã xóa sản phẩm thành công!", ToastLevel.Info);
             StateHasChanged();
         }
     }
 }
-

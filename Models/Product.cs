@@ -20,6 +20,7 @@ namespace DoAnTotNghiep.Models
         public Category? Category { get; set; }
         
         public virtual ICollection<StockLevel> StockLevels { get; set; } = new List<StockLevel>();
+        public bool IsPublished { get; set; } = false;
 
         // --- NÂNG CẤP LOGIC TÍNH TỒN KHO ---
 
