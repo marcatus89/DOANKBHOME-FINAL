@@ -1,6 +1,7 @@
 @page "/admin/products"
 @attribute [Authorize(Roles = "Admin")]
 @using Microsoft.EntityFrameworkCore
+@using System.Web
 @inject ApplicationDbContext DbContext
 @inject NavigationManager Navigation
 @inject ToastService ToastSvc
@@ -9,7 +10,7 @@
     <i class="bi bi-box-seam me-2"></i>Quản lý Sản phẩm
 </h3>
 
-<!-- Nút thêm sản phẩm -->
+<!-- 🟩 Nút thêm sản phẩm -->
 <a href="/admin/products/add" class="btn btn-primary mb-3">
     <i class="bi bi-plus-circle me-1"></i> Thêm sản phẩm mới
 </a>
@@ -45,10 +46,16 @@
                     <option value="false">Ẩn</option>
                 </select>
             </div>
+
             <div class="col-md-1 text-end">
-                <button class="btn btn-sm btn-primary w-100" @onclick="ApplyFilter">
-                    Lọc
-                </button>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-primary flex-fill" @onclick="ApplyFilter">
+                        <i class="bi bi-search me-1"></i>Lọc
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="ClearFilter">
+                        <i class="bi bi-x-circle me-1"></i>Xóa
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -126,15 +133,23 @@ else
 
                     <!-- ⚙️ Hành động -->
                     <td class="text-end">
-                        <a href="@($"admin/products/edit/{product.Id}")" class="btn btn-sm btn-secondary me-1">
-                            <i class="bi bi-pencil-square"></i> Sửa
-                        </a>
-                        <a href="@($"admin/inventory-history/{product.Id}")" class="btn btn-sm btn-info me-1">
-                            <i class="bi bi-clock-history"></i> Lịch sử
-                        </a>
-                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteProduct(product.Id)">
-                            <i class="bi bi-trash"></i> Xóa
-                        </button>
+                        <div class="d-flex flex-column align-items-end gap-1">
+                            <a href="@($"admin/products/edit/{product.Id}")" class="btn btn-sm btn-secondary w-100">
+                                <i class="bi bi-pencil-square"></i> Sửa
+                            </a>
+
+                            <button class="btn btn-sm btn-info w-100" @onclick="() => GoToHistory(product.Name)">
+                                <i class="bi bi-clock-history"></i> Lịch sử
+                            </button>
+
+                            <button class="btn btn-sm btn-success w-100" @onclick="() => GoToInventory(product.Name)">
+                                <i class="bi bi-box"></i> Tồn kho
+                            </button>
+
+                            <button class="btn btn-sm btn-danger w-100" @onclick="() => DeleteProduct(product.Id)">
+                                <i class="bi bi-trash"></i> Xóa
+                            </button>
+                        </div>
                     </td>
                 </tr>
             }
@@ -195,6 +210,14 @@ else
     private async Task ApplyFilter()
     {
         await LoadProducts();
+        ToastSvc.ShowToast("Đã áp dụng bộ lọc!", ToastLevel.Info);
+    }
+
+    private async Task ClearFilter()
+    {
+        filter = new();
+        await LoadProducts();
+        ToastSvc.ShowToast("Đã xóa bộ lọc!", ToastLevel.Info);
     }
 
     private async Task TogglePublish(int productId, bool isPublished)
@@ -227,5 +250,19 @@ else
             ToastSvc.ShowToast("🗑️ Đã xóa sản phẩm thành công!", ToastLevel.Info);
             StateHasChanged();
         }
+    }
+
+    // 🟢 Điều hướng tới trang lịch sử tồn kho
+    private void GoToHistory(string productName)
+    {
+        var encoded = HttpUtility.UrlEncode(productName);
+        Navigation.NavigateTo($"/admin/inventory-history?productName={encoded}");
+    }
+
+    // 🟢 Điều hướng tới trang tổng quan tồn kho
+    private void GoToInventory(string productName)
+    {
+        var encoded = HttpUtility.UrlEncode(productName);
+        Navigation.NavigateTo($"/admin/inventory?productName={encoded}");
     }
 }

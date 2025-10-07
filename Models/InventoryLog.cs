@@ -13,10 +13,12 @@ namespace DoAnTotNghiep.Models
         public virtual Product? Product { get; set; }
 
         public int QuantityChange { get; set; } // Số lượng thay đổi (+ cho nhập, - cho xuất)
+        public int OldQuantity { get; set; }
         public int NewQuantity { get; set; } // Số lượng tồn kho mới sau khi thay đổi
 
         [Required]
         public string Reason { get; set; } = string.Empty; // Lý do thay đổi (VD: Nhập hàng, Bán hàng, Kiểm kê)
+        public string? UserEmail { get; set; }
         
         public DateTime Timestamp { get; set; } = DateTime.Now; // Thời điểm thay đổi
     }

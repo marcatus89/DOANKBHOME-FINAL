@@ -42,3 +42,14 @@ export function hideModal(selector) {
 // 🔽 GẮN GLOBAL FALLBACK để Blazor có thể gọi dạng JSRuntime.InvokeVoidAsync("showModal", ...)
 window.showModal = showModal;
 window.hideModal = hideModal;
+window.showModal = (id) => {
+    var modal = new bootstrap.Modal(document.querySelector(id));
+    modal.show();
+};
+
+// ✅ Hàm ẩn modal
+window.hideModal = (id) => {
+    var modalEl = document.querySelector(id);
+    var modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) modal.hide();
+};

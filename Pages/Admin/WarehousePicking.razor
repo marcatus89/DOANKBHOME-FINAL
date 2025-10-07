@@ -5,8 +5,11 @@
 @inject NavigationManager Navigation
 @inject PickingService PickingSvc
 @inject ToastService ToastSvc
+@inject AuthenticationStateProvider AuthProvider
 
-<h3>Lấy hàng & Đóng gói cho Đơn hàng #@OrderId</h3>
+<h3 class="fw-bold text-primary mb-4">
+    <i class="bi bi-box-seam me-2"></i>Lấy hàng & Đóng gói cho Đơn hàng #@OrderId
+</h3>
 
 @if (pickingModel == null)
 {
@@ -14,72 +17,80 @@
 }
 else
 {
-    <div class="card">
+    <div class="card shadow-sm border-0">
         <div class="card-body">
-            <div class="picking-list">
-                @foreach (var productGroup in pickingModel.PickingProducts)
-                {
-                    <div class="picking-product-group card mb-3">
-                        <div class="card-header bg-light">
-                             <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>Sản phẩm: @productGroup.ProductName</strong><br/>
-                                    <span>Số lượng cần lấy: @productGroup.RequiredQuantity</span>
-                                </div>
-                                <div>
-                                    <span class="badge @(productGroup.IsFullyPicked ? "bg-success" : "bg-danger")">
-                                        Đã chọn lấy: @productGroup.PickedQuantity / @productGroup.RequiredQuantity
-                                    </span>
-                                </div>
+            @foreach (var productGroup in pickingModel.PickingProducts)
+            {
+                <div class="card mb-3 border-0 shadow-sm">
+                    <div class="card-header bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>@productGroup.ProductName</strong><br />
+                                <small class="text-muted">Cần lấy: @productGroup.RequiredQuantity</small>
+                            </div>
+                            <div>
+                                <span class="badge @(productGroup.IsFullyPicked ? "bg-success" : "bg-danger")">
+                                    @($"Đã chọn {productGroup.PickedQuantity}/{productGroup.RequiredQuantity}")
+                                </span>
                             </div>
                         </div>
-                        <div class="card-body">
-                            @foreach (var pick in productGroup.Picks)
-                            {
-                                <div class="row align-items-center mb-2">
-                                    <div class="col-md-5">
-                                        <label>Vị trí</label>
-                                        <InputSelect class="form-select form-select-sm" @bind-Value="pick.LocationId">
-                                            <option value="0">-- Chọn vị trí --</option>
-                                            @if(allLocations != null)
-                                            {
-                                                @foreach (var location in allLocations.Where(l => l.Warehouse != null && l.Warehouse.Name.Contains("Kho Chính")))
-                                                {
-                                                    <option value="@location.Id">@location.Code (Tồn: @GetStockForLocation(productGroup.ProductId, location.Id))</option>
-                                                }
-                                            }
-                                        </InputSelect>
-                                    </div>
-                                    <div class="col-md-5">
-                                        <label>Số lượng lấy</label>
-                                        <InputNumber class="form-control form-control-sm" @bind-Value="pick.QuantityToPick" />
-                                    </div>
-                                    <div class="col-md-2">
-                                        <button class="btn btn-sm btn-danger mt-3" @onclick="() => productGroup.Picks.Remove(pick)">Xóa</button>
-                                    </div>
-                                </div>
-                            }
-                             <button class="btn btn-sm btn-outline-primary mt-2" @onclick="() => productGroup.Picks.Add(new PickingAllocationViewModel())">
-                                <span class="oi oi-plus"></span> Thêm vị trí lấy hàng
-                            </button>
-                        </div>
                     </div>
-                }
-            </div>
+
+                    <div class="card-body">
+                        @foreach (var pick in productGroup.Picks)
+                        {
+                            <div class="row align-items-center mb-2">
+                                <div class="col-md-5">
+                                    <label class="form-label fw-semibold">Vị trí</label>
+                                    <InputSelect class="form-select form-select-sm" @bind-Value="pick.LocationId">
+                                        <option value="0">-- Chọn vị trí --</option>
+                                        @if (allLocations != null)
+                                        {
+                                            @foreach (var location in allLocations)
+                                            {
+                                                <option value="@location.Id">
+                                                    @location.Code (@location.Warehouse!.Name) - Tồn: @GetStockForLocation(productGroup.ProductId, location.Id)
+                                                </option>
+                                            }
+                                        }
+                                    </InputSelect>
+                                </div>
+
+                                <div class="col-md-5">
+                                    <label class="form-label fw-semibold">Số lượng lấy</label>
+                                    <InputNumber class="form-control form-control-sm" @bind-Value="pick.QuantityToPick" />
+                                </div>
+
+                                <div class="col-md-2 text-end mt-3">
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => productGroup.Picks.Remove(pick)">
+                                        Xoá
+                                    </button>
+                                </div>
+                            </div>
+                        }
+
+                        <button class="btn btn-sm btn-outline-primary mt-2" @onclick="() => productGroup.Picks.Add(new PickingAllocationViewModel())">
+                            <i class="bi bi-plus-circle me-1"></i>Thêm vị trí lấy
+                        </button>
+                    </div>
+                </div>
+            }
         </div>
-        <div class="card-footer">
-            <button class="btn btn-success" @onclick="HandleConfirmPicking" disabled="@(!pickingModel.IsReadyToCommit)">
-                Xác nhận đã Lấy hàng & Đóng gói
+
+        <div class="card-footer text-end">
+            <button class="btn btn-success me-2" @onclick="HandleConfirmPicking" disabled="@(!pickingModel.IsReadyToCommit)">
+                <i class="bi bi-check-circle me-1"></i>Xác nhận đã Lấy hàng & Đóng gói
             </button>
-            <a href="/admin/warehouse" class="btn btn-secondary">Quay lại</a>
+            <a href="/admin/warehouse" class="btn btn-secondary">
+                <i class="bi bi-arrow-left-circle me-1"></i>Quay lại
+            </a>
         </div>
     </div>
 }
 
 @code {
-    [Parameter]
-    public int OrderId { get; set; }
-    
+    [Parameter] public int OrderId { get; set; }
+
     private PickingViewModel? pickingModel;
     private List<Location>? allLocations;
     private List<StockLevel>? allStockLevels;
@@ -110,14 +121,11 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // 1. Tải tất cả các vị trí và tồn kho cần thiết một lần duy nhất
         allLocations = await DbContext.Locations.Include(l => l.Warehouse).OrderBy(l => l.Code).ToListAsync();
         allStockLevels = await DbContext.StockLevels.ToListAsync();
 
-        // 2. Lấy gợi ý từ PickingService
         var suggestions = await PickingSvc.GetPickingSuggestionsAsync(OrderId);
 
-        // 3. Chuyển đổi gợi ý thành model để hiển thị trên giao diện
         pickingModel = new PickingViewModel();
         foreach (var suggestion in suggestions)
         {
@@ -145,37 +153,53 @@ else
     {
         if (pickingModel == null || !pickingModel.IsReadyToCommit)
         {
-            ToastSvc.ShowToast("Vui lòng chọn đủ số lượng cho tất cả sản phẩm.", ToastLevel.Error);
+            ToastSvc.ShowToast("⚠️ Vui lòng chọn đủ số lượng cho tất cả sản phẩm.", ToastLevel.Warning);
             return;
         }
+
+        // ✅ Lấy người thao tác hiện tại
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var userEmail = authState.User?.Identity?.Name ?? "Không rõ";
 
         foreach (var productGroup in pickingModel.PickingProducts)
         {
             foreach (var pick in productGroup.Picks)
             {
-                if (pick.LocationId == 0 || pick.QuantityToPick <= 0) continue;
+                if (pick.LocationId == 0 || pick.QuantityToPick <= 0)
+                    continue;
 
-                var stockLevel = await DbContext.StockLevels.FirstOrDefaultAsync(sl => sl.ProductId == productGroup.ProductId && sl.LocationId == pick.LocationId);
-                
+                var stockLevel = await DbContext.StockLevels
+                    .Include(sl => sl.Location)!.ThenInclude(l => l.Warehouse)
+                    .FirstOrDefaultAsync(sl => sl.ProductId == productGroup.ProductId && sl.LocationId == pick.LocationId);
+
                 if (stockLevel == null || stockLevel.Quantity < pick.QuantityToPick)
                 {
-                    ToastSvc.ShowToast($"Không đủ tồn kho cho sản phẩm '{productGroup.ProductName}' tại vị trí đã chọn.", ToastLevel.Error);
+                    ToastSvc.ShowToast($"❌ Không đủ tồn kho cho '{productGroup.ProductName}' tại vị trí đã chọn.", ToastLevel.Error);
                     return;
                 }
-                
+
+                int oldQty = stockLevel.Quantity;
                 stockLevel.Quantity -= pick.QuantityToPick;
 
-                var log = new InventoryLog
+                // ✅ Ghi log tồn kho chi tiết (để InventoryHistory hiển thị đúng)
+                DbContext.InventoryLogs.Add(new InventoryLog
                 {
                     ProductId = productGroup.ProductId,
                     QuantityChange = -pick.QuantityToPick,
                     NewQuantity = stockLevel.Quantity,
-                    Reason = $"Xuất hàng cho đơn hàng #{OrderId}"
-                };
-                DbContext.InventoryLogs.Add(log);
+                    Timestamp = DateTime.Now,
+                    Reason =
+                        $"Loại:Xuất hàng | " +
+                        $"Kho:{stockLevel.Location!.Warehouse!.Name} | " +
+                        $"Vị trí:{stockLevel.Location.Code} | " +
+                        $"User:{userEmail} | " +
+                        $"Tồn cũ:{oldQty} | " +
+                        $"Ghi chú:Đóng gói đơn hàng #{OrderId}"
+                });
             }
         }
-        
+
+        // ✅ Cập nhật trạng thái đơn hàng
         var order = await DbContext.Orders.FindAsync(OrderId);
         if (order != null)
         {
@@ -183,8 +207,7 @@ else
         }
 
         await DbContext.SaveChangesAsync();
-        ToastSvc.ShowToast("Lấy hàng và đóng gói thành công!", ToastLevel.Success);
+        ToastSvc.ShowToast("✅ Đã cập nhật tồn kho & ghi vào lịch sử!", ToastLevel.Success);
         Navigation.NavigateTo("/admin/warehouse");
     }
 }
-

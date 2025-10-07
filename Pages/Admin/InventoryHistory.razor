@@ -3,8 +3,19 @@
 @using Microsoft.EntityFrameworkCore
 @inject ApplicationDbContext DbContext
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthProvider
 
-<h3 class="mb-4 fw-bold text-primary"><i class="bi bi-clock-history me-2"></i>Lịch sử thay đổi tồn kho</h3>
+<h3 class="mb-4 fw-bold text-primary">
+    <i class="bi bi-clock-history me-2"></i>Lịch sử thay đổi tồn kho
+</h3>
+
+@if (!string.IsNullOrEmpty(filter.ProductName))
+{
+    <div class="alert alert-info py-2 px-3 small shadow-sm mb-3">
+        <i class="bi bi-funnel-fill me-2"></i>
+        Đang xem dữ liệu cho sản phẩm: <strong>@filter.ProductName</strong>
+    </div>
+}
 
 <!-- BỘ LỌC -->
 <div class="card shadow-sm border-0 mb-4">
@@ -34,7 +45,7 @@
             </div>
             <div class="col-md-3">
                 <label class="form-label fw-semibold text-secondary">Người thao tác</label>
-                <InputText class="form-control form-control-sm" @bind-Value="filter.UserName" placeholder="Tên người dùng..." />
+                <InputText class="form-control form-control-sm" @bind-Value="filter.UserName" placeholder="Tên..." />
             </div>
         </div>
 
@@ -77,10 +88,11 @@ else
                     <th>Sản phẩm</th>
                     <th>Kho / Vị trí</th>
                     <th>Loại hành động</th>
+                    <th class="text-end">Tồn cũ</th>
                     <th class="text-end">Thay đổi</th>
                     <th class="text-end">Tồn mới</th>
                     <th>Người thao tác</th>
-                    <th>Mã phiếu / Ghi chú</th>
+                    <th>Ghi chú</th>
                 </tr>
             </thead>
             <tbody>
@@ -95,10 +107,11 @@ else
                                 <i class="@GetReasonIcon(log.Reason) me-1"></i>@log.Reason
                             </span>
                         </td>
+                        <td class="text-end text-muted">@log.OldQuantity</td>
                         <td class="text-end @(log.QuantityChange >= 0 ? "text-success fw-bold" : "text-danger fw-bold")">
                             @log.QuantityChange.ToString("+#;-#;0")
                         </td>
-                        <td class="text-end">@log.NewQuantity</td>
+                        <td class="text-end fw-semibold">@log.NewQuantity</td>
                         <td>@log.UserName</td>
                         <td>@log.Note</td>
                     </tr>
@@ -107,38 +120,26 @@ else
         </table>
     </div>
 }
+
 @code {
     private List<InventoryLogViewModel>? logs;
     private bool isLoading = true;
     private FilterModel filter = new();
 
-    #region Models
-    public class InventoryLogViewModel
-    {
-        public DateTime Timestamp { get; set; }
-        public string ProductName { get; set; } = "";
-        public string WarehouseName { get; set; } = "";
-        public string LocationCode { get; set; } = "";
-        public string Reason { get; set; } = "";
-        public int QuantityChange { get; set; }
-        public int NewQuantity { get; set; }
-        public string UserName { get; set; } = "";
-        public string Note { get; set; } = "";
-    }
-
-    public class FilterModel
-    {
-        public string? ProductName { get; set; }
-        public string? WarehouseName { get; set; }
-        public string? ReasonType { get; set; }
-        public string? UserName { get; set; }
-        public DateTime? FromDate { get; set; }
-        public DateTime? ToDate { get; set; }
-    }
-    #endregion
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? ProductName { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
+        // Lấy query string từ URL nếu có
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var name = query["productName"];
+
+        if (!string.IsNullOrEmpty(name))
+            filter.ProductName = name;
+
         await LoadLogs();
     }
 
@@ -150,12 +151,17 @@ else
             .OrderByDescending(l => l.Timestamp)
             .AsQueryable();
 
-        // Áp dụng lọc
         if (!string.IsNullOrWhiteSpace(filter.ProductName))
             query = query.Where(l => l.Product!.Name.Contains(filter.ProductName));
 
+        if (!string.IsNullOrWhiteSpace(filter.WarehouseName))
+            query = query.Where(l => l.Reason.Contains($"Kho:{filter.WarehouseName}"));
+
         if (!string.IsNullOrWhiteSpace(filter.ReasonType))
             query = query.Where(l => l.Reason.Contains(filter.ReasonType));
+
+        if (!string.IsNullOrWhiteSpace(filter.UserName))
+            query = query.Where(l => l.Reason.Contains($"User:{filter.UserName}"));
 
         if (filter.FromDate.HasValue)
             query = query.Where(l => l.Timestamp >= filter.FromDate.Value);
@@ -164,15 +170,15 @@ else
             query = query.Where(l => l.Timestamp <= filter.ToDate.Value);
 
         var list = await query.ToListAsync();
-
         logs = list.Select(l => ParseLog(l)).ToList();
         isLoading = false;
     }
 
     private InventoryLogViewModel ParseLog(InventoryLog l)
     {
-        // Tách thông tin từ Reason (các log bạn sẽ ghi có cấu trúc chuẩn)
         string warehouse = "", location = "", user = "", note = "", reasonType = l.Reason;
+        int oldQty = 0;
+
         var parts = l.Reason.Split('|', StringSplitOptions.TrimEntries);
         foreach (var p in parts)
         {
@@ -181,18 +187,20 @@ else
             else if (p.StartsWith("User:")) user = p.Replace("User:", "").Trim();
             else if (p.StartsWith("Ghi chú:")) note = p.Replace("Ghi chú:", "").Trim();
             else if (p.StartsWith("Loại:")) reasonType = p.Replace("Loại:", "").Trim();
+            else if (p.StartsWith("Tồn cũ:")) int.TryParse(p.Replace("Tồn cũ:", "").Trim(), out oldQty);
         }
 
         return new InventoryLogViewModel
         {
             Timestamp = l.Timestamp,
             ProductName = l.Product?.Name ?? "(Không xác định)",
-            Reason = reasonType,
-            QuantityChange = l.QuantityChange,
-            NewQuantity = l.NewQuantity,
             WarehouseName = warehouse,
             LocationCode = location,
-            UserName = user,
+            Reason = reasonType,
+            OldQuantity = oldQty,
+            QuantityChange = l.QuantityChange,
+            NewQuantity = l.NewQuantity,
+            UserName = string.IsNullOrEmpty(user) ? "Không rõ" : user,
             Note = note
         };
     }
@@ -217,4 +225,28 @@ else
 
     private async Task ApplyFilter() => await LoadLogs();
     private async Task ClearFilter() { filter = new(); await LoadLogs(); }
+
+    public class InventoryLogViewModel
+    {
+        public DateTime Timestamp { get; set; }
+        public string ProductName { get; set; } = "";
+        public string WarehouseName { get; set; } = "";
+        public string LocationCode { get; set; } = "";
+        public string Reason { get; set; } = "";
+        public int OldQuantity { get; set; }
+        public int QuantityChange { get; set; }
+        public int NewQuantity { get; set; }
+        public string UserName { get; set; } = "";
+        public string Note { get; set; } = "";
+    }
+
+    public class FilterModel
+    {
+        public string? ProductName { get; set; }
+        public string? WarehouseName { get; set; }
+        public string? ReasonType { get; set; }
+        public string? UserName { get; set; }
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
+    }
 }

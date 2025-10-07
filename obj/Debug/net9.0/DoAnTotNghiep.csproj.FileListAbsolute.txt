@@ -1307,7 +1307,6 @@
 /Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/compressed/quow6eeltf-psxpu4y82n.gz
 /Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/compressed/sh2e58k8mv-hvzw3l7t7r.gz
 /Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/compressed/9zciygj8ks-61n19gt1b8.gz
-/Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/compressed/fbp68qa2f9-e1e4tvcstn.gz
 /Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/compressed/1ya2wix15p-u0idqzoknv.gz
 /Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/staticwebassets.build.json
 /Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/staticwebassets.build.json.cache
@@ -1319,3 +1318,4 @@
 /Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/DoAnTotNghiep.pdb
 /Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/DoAnTotNghiep.genruntimeconfig.cache
 /Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/ref/DoAnTotNghiep.dll
+/Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/Debug/net9.0/compressed/fbp68qa2f9-hrzz08sdav.gz
