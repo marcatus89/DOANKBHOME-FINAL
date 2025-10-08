@@ -5562,11 +5562,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/lethien/Desktop/Dotnet04/Bản sao DoAnKBHOME-Final/DoAnTotNghiep.csproj",
+      "projectUniqueName": "/Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/DoAnTotNghiep.csproj",
       "projectName": "DoAnTotNghiep",
-      "projectPath": "/Users/lethien/Desktop/Dotnet04/Bản sao DoAnKBHOME-Final/DoAnTotNghiep.csproj",
+      "projectPath": "/Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/DoAnTotNghiep.csproj",
       "packagesPath": "/Users/lethien/.nuget/packages/",
-      "outputPath": "/Users/lethien/Desktop/Dotnet04/Bản sao DoAnKBHOME-Final/obj/",
+      "outputPath": "/Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/lethien/.nuget/NuGet/NuGet.Config"

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "uDKpmnLaHLk=",
+  "dgSpecHash": "MQRUZB+wdGI=",
   "success": true,
-  "projectFilePath": "/Users/lethien/Desktop/Dotnet04/Bản sao DoAnKBHOME-Final/DoAnTotNghiep.csproj",
+  "projectFilePath": "/Users/lethien/Desktop/Dotnet04/DoAnKBHOME-Final/DoAnTotNghiep.csproj",
   "expectedPackageFiles": [
     "/Users/lethien/.nuget/packages/azure.core/1.6.0/azure.core.1.6.0.nupkg.sha512",
     "/Users/lethien/.nuget/packages/azure.identity/1.3.0/azure.identity.1.3.0.nupkg.sha512",
