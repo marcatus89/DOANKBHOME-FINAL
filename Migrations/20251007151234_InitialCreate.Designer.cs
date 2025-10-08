@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DoAnTotNghiep.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251005142058_RebuildWarehouseSchema")]
-    partial class RebuildWarehouseSchema
+    [Migration("20251007151234_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -43,6 +43,9 @@ namespace DoAnTotNghiep.Migrations
                     b.Property<int>("NewQuantity")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("OldQuantity")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("ProductId")
                         .HasColumnType("INTEGER");
 
@@ -54,6 +57,9 @@ namespace DoAnTotNghiep.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("Timestamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserEmail")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -170,6 +176,9 @@ namespace DoAnTotNghiep.Migrations
 
                     b.Property<string>("ImageUrl")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Name")
                         .IsRequired()

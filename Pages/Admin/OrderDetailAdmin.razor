@@ -124,7 +124,6 @@ else
                 <div class="card-header">Hành động</div>
                 <div class="card-body">
 
-                    @* 🔒 Nếu đơn hàng đã hoàn thành hoặc hủy, ẩn toàn bộ chức năng cập nhật *@
                     @if (IsOrderLocked())
                     {
                         <div class="alert alert-secondary text-center">
@@ -142,9 +141,6 @@ else
                                     <option value="Chờ xác nhận">Chờ xác nhận</option>
                                     <option value="Chờ thanh toán">Chờ thanh toán</option>
                                     <option value="Đã thanh toán">Đã thanh toán</option>
-                                    <option value="Sẵn sàng giao hàng">Sẵn sàng giao hàng</option>
-                                    <option value="Đang giao">Đang giao</option>
-                                    <option value="Hoàn thành">Hoàn thành</option>
                                     <option value="Đã hủy">Đã hủy</option>
                                 </InputSelect>
                             </div>
@@ -163,22 +159,6 @@ else
                                     <button class="btn btn-success" @onclick='async () => { newStatus = "Chờ thanh toán"; await UpdateStatus(); }'>Xác nhận đơn</button>
                                     <button class="btn btn-danger" @onclick='async () => { newStatus = "Đã hủy"; await UpdateStatus(); }'>Hủy đơn</button>
                                 </div>
-                            }
-                        </AuthorizeView>
-
-                        <!-- ACCOUNTING -->
-                        <AuthorizeView Roles="Accounting">
-                            @if (CurrentOrder.Status == "Chờ thanh toán")
-                            {
-                                <button class="btn btn-success w-100" @onclick='async () => { newStatus = "Đã thanh toán"; await UpdateStatus(); }'>Xác nhận Đã thanh toán</button>
-                            }
-                        </AuthorizeView>
-
-                        <!-- WAREHOUSE -->
-                        <AuthorizeView Roles="Warehouse">
-                            @if (CurrentOrder.Status == "Đã thanh toán")
-                            {
-                                <button class="btn btn-info w-100" @onclick='async () => { newStatus = "Sẵn sàng giao hàng"; await UpdateStatus(); }'>Xác nhận Đã chuẩn bị hàng</button>
                             }
                         </AuthorizeView>
 
@@ -221,12 +201,53 @@ else
         CurrentOrder != null && 
         (CurrentOrder.Status == "Hoàn thành" || CurrentOrder.Status == "Đã hủy");
 
+    // ✅ Quy tắc trạng thái hợp lệ (đã cập nhật)
+    private bool CanChangeStatus(string current, string next)
+    {
+        if (current == next)
+            return true;
+
+        // 🔒 Không cho phép quay lại hoặc hủy ở các giai đoạn sau
+        if (current is "Sẵn sàng giao hàng" or "Đang giao" or "Hoàn thành")
+        {
+            if (next is "Đã hủy" or "Đã thanh toán" or "Chờ thanh toán" or "Chờ xác nhận")
+                return false;
+        }
+
+        // ❌ Không cho phép hủy ở các giai đoạn sau trừ 3 trạng thái đầu
+        if (next == "Đã hủy")
+        {
+            return current == "Chờ xác nhận"
+                || current == "Chờ thanh toán"
+                || current == "Đã thanh toán";
+        }
+
+        // ✅ Cho phép chuyển xuôi theo luồng
+        return (current, next) switch
+        {
+            ("Chờ xác nhận", "Chờ thanh toán") => true,
+            ("Chờ thanh toán", "Đã thanh toán") => true,
+            ("Đã thanh toán", "Sẵn sàng giao hàng") => true,
+            ("Sẵn sàng giao hàng", "Đang giao") => true,
+            ("Đang giao", "Hoàn thành") => true,
+            _ => false
+        };
+    }
+
     private async Task UpdateStatus()
     {
-        if (IsOrderLocked()) return; // 🔒 Không cho phép cập nhật nếu đã hoàn thành hoặc hủy
+        if (IsOrderLocked()) return;
 
         if (CurrentOrder != null && !string.IsNullOrEmpty(newStatus))
         {
+            // Kiểm tra hợp lệ
+            if (!CanChangeStatus(CurrentOrder.Status, newStatus))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", 
+                    $"Không thể chuyển từ trạng thái '{CurrentOrder.Status}' sang '{newStatus}'.");
+                return;
+            }
+
             CurrentOrder.Status = newStatus;
 
             if (!string.IsNullOrWhiteSpace(salesNoteInput))
@@ -246,6 +267,7 @@ else
         "Đã hủy" => "bg-danger",
         "Đang giao" => "bg-primary",
         "Sẵn sàng giao hàng" => "bg-warning text-dark",
+        "Đã thanh toán" => "bg-info text-dark",
         "Chờ thanh toán" => "bg-info text-dark",
         _ => "bg-secondary"
     };
@@ -257,5 +279,4 @@ else
 
     private async Task Print() =>
         await JSRuntime.InvokeVoidAsync("triggerPrint");
-        
 }
